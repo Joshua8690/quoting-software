@@ -75,6 +75,8 @@ export default function InvoicePage() {
   const [plasmaCuttingMinutes, setPlasmaCuttingMinutes] = useState("")
   const [plasmaCostPerMinute, setPlasmaCostPerMinute] = useState("")
 
+  const [savedDrafts, setSavedDrafts] = useState<any[]>([])
+
   // Saved data states
   const [savedCompanies, setSavedCompanies] = useState<SavedCompany[]>([])
   const [savedCustomerNames, setSavedCustomerNames] = useState<string[]>([])
@@ -96,6 +98,9 @@ export default function InvoicePage() {
       if (projectNames) setSavedProjectNames(JSON.parse(projectNames))
       if (customerEmails) setSavedCustomerEmails(JSON.parse(customerEmails))
       if (poNumbers) setSavedPoNumbers(JSON.parse(poNumbers))
+
+      const drafts = localStorage.getItem("savedDrafts")
+      if (drafts) setSavedDrafts(JSON.parse(drafts))
     }
 
     loadSavedData()
@@ -159,6 +164,65 @@ export default function InvoicePage() {
     setCustomerEmail("")
     setPlasmaCuttingMinutes("")
     setPlasmaCostPerMinute("")
+  }
+
+  const saveDraft = () => {
+    const draft = {
+      id: Date.now(),
+      companyInfo,
+      customerName,
+      projectName,
+      sheetCost,
+      markupPercentage,
+      lineItems,
+      sheetSize,
+      materialType,
+      formingCost,
+      formingCostMethod,
+      poNumber,
+      customSheetSize,
+      hourlyRate,
+      hoursWorked,
+      customerEmail,
+      plasmaCuttingMinutes,
+      plasmaCostPerMinute,
+      savedAt: new Date().toISOString(),
+      label: `${customerName || "Untitled"} - ${projectName || "No Project"}`,
+    }
+
+    const updatedDrafts = [draft, ...savedDrafts.filter((d) => d.id !== draft.id)].slice(0, 20)
+    setSavedDrafts(updatedDrafts)
+    localStorage.setItem("savedDrafts", JSON.stringify(updatedDrafts))
+    toast.success("Draft saved successfully!")
+  }
+
+  const loadDraft = (draft: any) => {
+    setCompanyInfo(draft.companyInfo || { name: "", phone: "", address: "" })
+    setCustomerName(draft.customerName || "")
+    setProjectName(draft.projectName || "")
+    setSheetCost(draft.sheetCost || "")
+    setMarkupPercentage(draft.markupPercentage || "30")
+    setLineItems(draft.lineItems || [{ description: "", length: "", width: "", quantity: "1", quantityType: "dropdown", lengthUnit: "inches", widthUnit: "inches", sqft: "", inputMethod: "dimensions" }])
+    setSheetSize(draft.sheetSize || { length: 5, width: 10, unit: "feet" })
+    setMaterialType(draft.materialType || materialTypes[0])
+    setFormingCost(draft.formingCost || "")
+    setFormingCostMethod(draft.formingCostMethod || "perItem")
+    setPoNumber(draft.poNumber || "")
+    setCustomSheetSize(draft.customSheetSize || { length: 0, width: 0, unit: "feet" })
+    setHourlyRate(draft.hourlyRate || "")
+    setHoursWorked(draft.hoursWorked || "")
+    setCustomerEmail(draft.customerEmail || "")
+    setPlasmaCuttingMinutes(draft.plasmaCuttingMinutes || "")
+    setPlasmaCostPerMinute(draft.plasmaCostPerMinute || "")
+    setGeneratedInvoice(null)
+    toast.success("Draft loaded! You can now edit and generate the invoice.")
+  }
+
+  const deleteDraft = (draftId: number) => {
+    const updatedDrafts = savedDrafts.filter((d) => d.id !== draftId)
+    setSavedDrafts(updatedDrafts)
+    localStorage.setItem("savedDrafts", JSON.stringify(updatedDrafts))
+    toast.success("Draft deleted.")
   }
 
   useEffect(() => {
@@ -691,7 +755,10 @@ View full invoice: ${shareableLink}
           <h1 className="text-3xl font-bold">Invoice Generator</h1>
           <TimestampClock />
         </div>
-        <Button onClick={clearInvoice}>New Invoice</Button>
+        <div className="flex gap-2">
+          <Button onClick={saveDraft} variant="outline">Save Draft</Button>
+          <Button onClick={clearInvoice}>New Invoice</Button>
+        </div>
       </div>
 
       {/* Company Information with Dropdowns */}
@@ -1434,6 +1501,37 @@ View full invoice: ${shareableLink}
             <p className="mt-1 text-gray-300">
               For questions about this invoice, please contact us at {generatedInvoice.companyInfo.phone}
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* Saved Drafts Section */}
+      {savedDrafts.length > 0 && (
+        <div className="mt-8">
+          <h2 className="text-2xl font-bold mb-4">Saved Drafts</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {savedDrafts.map((draft) => (
+              <div key={draft.id} className="border border-amber-200 bg-amber-50 p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+                <div className="flex justify-between items-start mb-2">
+                  <h3 className="font-semibold text-gray-800 truncate flex-1">{draft.label}</h3>
+                  <span className="text-xs bg-amber-200 text-amber-800 px-2 py-1 rounded font-medium ml-2">Draft</span>
+                </div>
+                {draft.companyInfo?.name && (
+                  <p className="text-sm text-gray-600">Company: {draft.companyInfo.name}</p>
+                )}
+                <p className="text-sm text-gray-600">Material: {draft.materialType}</p>
+                <p className="text-sm text-gray-600">Items: {draft.lineItems?.length || 0}</p>
+                <p className="text-sm text-gray-500 mt-1">Saved: {new Date(draft.savedAt).toLocaleDateString()} {new Date(draft.savedAt).toLocaleTimeString()}</p>
+                <div className="mt-3 flex gap-2">
+                  <Button onClick={() => loadDraft(draft)} className="flex-1 bg-amber-600 hover:bg-amber-700">
+                    Load & Edit
+                  </Button>
+                  <Button onClick={() => deleteDraft(draft.id)} variant="destructive" size="icon">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
