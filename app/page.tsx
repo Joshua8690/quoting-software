@@ -245,6 +245,19 @@ export default function InvoicePage() {
     return (subtotal + markup + totalFormingCost + laborCost + plasmaCost).toFixed(2)
   }
 
+  const calculateMaterialCost = () => {
+    return lineItems.reduce((total, item) => {
+      const itemCost = calculatePartCost(item)
+      return isNaN(itemCost) ? total : total + itemCost
+    }, 0)
+  }
+
+  const calculateNetProfit = () => {
+    const totalValue = Number.parseFloat(calculateTotal()) || 0
+    const materialCost = calculateMaterialCost()
+    return (totalValue - materialCost).toFixed(2)
+  }
+
   const calculateLaborCost = () => {
     const rate = Number.parseFloat(hourlyRate)
     const hours = Number.parseFloat(hoursWorked)
@@ -493,11 +506,13 @@ View full invoice: ${shareableLink}
 
       // Invoice Details (Right side)
       doc.setFont("helvetica", "bold")
+      doc.setFontSize(12)
       doc.text("Invoice #:", 140, 50)
       doc.text("Date:", 140, 58)
       doc.text("Due Date:", 140, 66)
 
       doc.setFont("helvetica", "normal")
+      doc.setFontSize(10)
       doc.text(generatedInvoice.invoiceNumber, 165, 50)
       doc.text(new Date(generatedInvoice.date).toLocaleDateString(), 165, 58)
       doc.text(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString(), 165, 66)
@@ -539,10 +554,8 @@ View full invoice: ${shareableLink}
       doc.setFontSize(9)
       doc.text("#", 25, yPos)
       doc.text("Description", 35, yPos)
-      doc.text("Dimensions", 90, yPos)
-      doc.text("Qty", 130, yPos)
-      doc.text("Unit Price", 145, yPos)
-      doc.text("Total", 175, yPos)
+      doc.text("Dimensions", 110, yPos)
+      doc.text("Qty", 160, yPos)
 
       // Table Lines
       doc.setDrawColor(...lightGray)
@@ -554,17 +567,11 @@ View full invoice: ${shareableLink}
       doc.setFont("helvetica", "normal")
       doc.setFontSize(8)
 
-      let subtotal = 0
       generatedInvoice.lineItems.forEach((item: any, index: number) => {
-        const unitPrice = (Number.parseFloat(item.cost) / Number.parseFloat(item.quantity)).toFixed(2)
-        subtotal += Number.parseFloat(item.cost)
-
         doc.text((index + 1).toString(), 25, yPos)
         doc.text(item.description || "Custom Part", 35, yPos)
-        doc.text(`${item.length} ${item.lengthUnit} × ${item.width} ${item.widthUnit}`, 90, yPos)
-        doc.text(item.quantity, 130, yPos)
-        doc.text(`$${unitPrice}`, 145, yPos)
-        doc.text(`$${item.cost}`, 175, yPos)
+        doc.text(`${item.length} ${item.lengthUnit} × ${item.width} ${item.widthUnit}`, 110, yPos)
+        doc.text(item.quantity, 160, yPos)
 
         yPos += 10
 
@@ -579,70 +586,27 @@ View full invoice: ${shareableLink}
       doc.line(20, yPos, 190, yPos)
       yPos += 20
 
-      // Cost Breakdown - Large centered section with dark styling
+      // Total Section - Simple and clean
       yPos += 10
-
-      // Calculate the width and position for a large centered box
-      const boxWidth = 120
-      const boxX = (210 - boxWidth) / 2 // Center horizontally
-      const boxHeight = 90 // Larger height
 
       // Draw main border with dark styling
       doc.setFillColor(45, 55, 72) // Dark blue-gray background
-      doc.rect(boxX, yPos, boxWidth, boxHeight, "F")
+      doc.rect(20, yPos, 170, 40, "F")
 
       // Draw border outline
       doc.setDrawColor(30, 41, 59) // Even darker border
       doc.setLineWidth(2)
-      doc.rect(boxX, yPos, boxWidth, boxHeight, "S")
+      doc.rect(20, yPos, 170, 40, "S")
 
-      // Title
+      // Total
       doc.setTextColor(255, 255, 255) // White text
       doc.setFont("helvetica", "bold")
-      doc.setFontSize(14)
-      doc.text("COST BREAKDOWN", boxX + boxWidth / 2, yPos + 15, { align: "center" })
-
-      // Draw line under title
-      doc.setDrawColor(255, 255, 255)
-      doc.setLineWidth(1)
-      doc.line(boxX + 10, yPos + 18, boxX + boxWidth - 10, yPos + 18)
-
-      doc.setFont("helvetica", "normal")
-      doc.setFontSize(10)
-      let itemYPos = yPos + 28
-
-      // Subtotal
-      const subtotalWithMarkup = lineItems.reduce((total, item) => {
-        const itemCost = calculatePartCost(item)
-        return isNaN(itemCost) ? total : total + itemCost
-      }, 0)
-      doc.text("Subtotal (Materials):", boxX + 10, itemYPos)
-      doc.text(`$${subtotalWithMarkup.toFixed(2)}`, boxX + boxWidth - 10, itemYPos, { align: "right" })
-      itemYPos += 8
-
-      // Labor Cost (including markup)
-      if (generatedInvoice.laborCost) {
-        const markupAmount = subtotalWithMarkup * (Number.parseFloat(markupPercentage) / 100 || 0)
-        const laborAmount = Number.parseFloat(generatedInvoice.laborCost || "0")
-        const totalLaborWithMarkup = laborAmount + markupAmount
-
-        doc.text("Labor:", boxX + 10, itemYPos)
-        doc.text(`$${totalLaborWithMarkup.toFixed(2)}`, boxX + boxWidth - 10, itemYPos, { align: "right" })
-        itemYPos += 8
-      }
-
-      // Total section with special styling
-      doc.setDrawColor(255, 255, 255)
-      doc.setLineWidth(2)
-      doc.line(boxX + 10, itemYPos + 5, boxX + boxWidth - 10, itemYPos + 5)
-
-      doc.setFont("helvetica", "bold")
-      doc.setFontSize(16)
-      doc.text("TOTAL:", boxX + 10, itemYPos + 18)
-      doc.text(`$${generatedInvoice.total}`, boxX + boxWidth - 10, itemYPos + 18, { align: "right" })
+      doc.setFontSize(18)
+      doc.text("TOTAL:", 30, yPos + 25)
+      doc.text(`$${generatedInvoice.total}`, 190, yPos + 25, { align: "right" })
 
       // Update yPos to continue after the box
-      yPos = yPos + boxHeight + 20
+      yPos = yPos + 40 + 20
 
       // Payment Terms with border
       yPos += 25
@@ -1221,24 +1185,32 @@ View full invoice: ${shareableLink}
 
       <div className="mb-6">
         <h2 className="text-xl font-semibold mb-4">Invoice Summary</h2>
-        <p className="text-lg">Subtotal: ${calculateTotal()}</p>
-        <p className="text-lg">
-          Total Forming Cost: $
-          {formingCostMethod === "perItem"
-            ? lineItems
-                .reduce(
-                  (total, item) =>
-                    total + (Number.parseFloat(formingCost) || 0) * (Number.parseFloat(item.quantity) || 0),
-                  0,
-                )
-                .toFixed(2)
-            : formingCost}
-        </p>
-        {calculatePlasmaCuttingCost() > 0 && (
-          <p className="text-lg">Plasma Cutting Cost: ${calculatePlasmaCuttingCost().toFixed(2)}</p>
-        )}
-        {calculateLaborCost() > 0 && <p className="text-lg">Labor Cost: ${calculateLaborCost().toFixed(2)}</p>}
-        <p className="text-2xl font-bold">Total: ${calculateTotal()}</p>
+        <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-2">
+          <p className="text-lg">Material Cost: ${calculateMaterialCost().toFixed(2)}</p>
+          <p className="text-lg">
+            Total Forming Cost: $
+            {formingCostMethod === "perItem"
+              ? lineItems
+                  .reduce(
+                    (total, item) =>
+                      total + (Number.parseFloat(formingCost) || 0) * (Number.parseFloat(item.quantity) || 0),
+                    0,
+                  )
+                  .toFixed(2)
+              : (Number.parseFloat(formingCost) || 0).toFixed(2)}
+          </p>
+          {calculatePlasmaCuttingCost() > 0 && (
+            <p className="text-lg">Plasma Cutting Cost: ${calculatePlasmaCuttingCost().toFixed(2)}</p>
+          )}
+          {calculateLaborCost() > 0 && <p className="text-lg">Labor Cost: ${calculateLaborCost().toFixed(2)}</p>}
+          <div className="border-t border-gray-300 pt-2 mt-2">
+            <p className="text-2xl font-bold">Total: ${calculateTotal()}</p>
+          </div>
+          <div className="border-t-2 border-green-400 pt-3 mt-3 bg-green-50 rounded-lg p-4">
+            <p className="text-sm text-green-700 font-medium">For Your Eyes Only - Not Shown on Invoice</p>
+            <p className="text-2xl font-bold text-green-700">Net Profit: ${calculateNetProfit()}</p>
+          </div>
+        </div>
       </div>
 
       <div className="flex justify-end mb-6">
@@ -1323,20 +1295,14 @@ View full invoice: ${shareableLink}
                 <thead>
                   <tr className="bg-gray-100">
                     <th className="border border-gray-300 px-3 py-4 text-left font-semibold text-gray-700 w-12">#</th>
-                    <th className="border border-gray-300 px-4 py-4 text-left font-semibold text-gray-700 min-w-[200px]">
+                    <th className="border border-gray-300 px-4 py-4 text-left font-semibold text-gray-700 min-w-[250px]">
                       Description
                     </th>
-                    <th className="border border-gray-300 px-4 py-4 text-center font-semibold text-gray-700 min-w-[120px]">
+                    <th className="border border-gray-300 px-4 py-4 text-center font-semibold text-gray-700 min-w-[150px]">
                       Dimensions
                     </th>
-                    <th className="border border-gray-300 px-3 py-4 text-center font-semibold text-gray-700 w-16">
+                    <th className="border border-gray-300 px-3 py-4 text-center font-semibold text-gray-700 w-20">
                       Qty
-                    </th>
-                    <th className="border border-gray-300 px-4 py-4 text-right font-semibold text-gray-700 min-w-[100px]">
-                      Unit Price
-                    </th>
-                    <th className="border border-gray-300 px-4 py-4 text-right font-semibold text-gray-700 min-w-[100px]">
-                      Total
                     </th>
                   </tr>
                 </thead>
@@ -1351,12 +1317,6 @@ View full invoice: ${shareableLink}
                         {item.length} {item.lengthUnit} × {item.width} {item.widthUnit}
                       </td>
                       <td className="border border-gray-300 px-3 py-4 text-center">{item.quantity}</td>
-                      <td className="border border-gray-300 px-4 py-4 text-right font-mono">
-                        ${(Number.parseFloat(item.cost) / Number.parseFloat(item.quantity)).toFixed(2)}
-                      </td>
-                      <td className="border border-gray-300 px-4 py-4 text-right font-medium font-mono">
-                        ${item.cost}
-                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -1364,86 +1324,14 @@ View full invoice: ${shareableLink}
             </div>
           </div>
 
-          {/* Cost Breakdown */}
+          {/* Total Section */}
           <div className="px-6 pb-6">
             <div className="flex justify-end">
               <div className="w-full max-w-lg">
-                <div className="bg-gray-50 p-6 rounded-lg border">
-                  <h4 className="font-semibold text-gray-800 mb-4 border-b border-gray-300 pb-2">Cost Breakdown</h4>
-
-                  {/* Subtotal */}
-                  <div className="flex justify-between py-3 text-gray-700 border-b border-gray-200">
-                    <span className="font-medium">Subtotal (Materials):</span>
-                    <span className="font-mono">
-                      $
-                      {lineItems
-                        .reduce((total, item) => {
-                          const itemCost = calculatePartCost(item)
-                          return isNaN(itemCost) ? total : total + itemCost
-                        }, 0)
-                        .toFixed(2)}
-                    </span>
-                  </div>
-
-                  {/* Markup */}
-                  <div className="flex justify-between py-3 text-gray-700 border-b border-gray-200">
-                    <span className="font-medium">Markup ({markupPercentage}%):</span>
-                    <span className="font-mono">
-                      $
-                      {(
-                        lineItems.reduce((total, item) => {
-                          const itemCost = calculatePartCost(item)
-                          return isNaN(itemCost) ? total : total + itemCost
-                        }, 0) * (Number.parseFloat(markupPercentage) / 100 || 0)
-                      ).toFixed(2)}
-                    </span>
-                  </div>
-
-                  {/* Forming Cost */}
-                  {Number(generatedInvoice.totalFormingCost) > 0 && (
-                    <div className="flex justify-between items-start py-3 text-gray-700 border-b border-gray-200">
-                      <div className="flex flex-col pr-4">
-                        <span className="font-medium">Forming Cost:</span>
-                        <span className="text-sm text-gray-500 break-words">
-                          ({generatedInvoice.formingCostMethod === "perItem" ? "Per Item" : "Total"})
-                        </span>
-                      </div>
-                      <span className="font-mono text-right">${generatedInvoice.totalFormingCost}</span>
-                    </div>
-                  )}
-
-                  {/* Plasma Cutting Cost */}
-                  {generatedInvoice.plasmaCuttingCost && (
-                    <div className="flex justify-between items-start py-3 text-gray-700 border-b border-gray-200">
-                      <div className="flex flex-col pr-4">
-                        <span className="font-medium">Plasma Cutting:</span>
-                        <span className="text-sm text-gray-500 break-words">
-                          ({generatedInvoice.plasmaCuttingMinutes}min @ ${generatedInvoice.plasmaCostPerMinute}/min)
-                        </span>
-                      </div>
-                      <span className="font-mono text-right">${generatedInvoice.plasmaCuttingCost}</span>
-                    </div>
-                  )}
-
-                  {/* Labor Cost */}
-                  {generatedInvoice.laborCost && (
-                    <div className="flex justify-between items-start py-3 text-gray-700 border-b border-gray-200">
-                      <div className="flex flex-col pr-4">
-                        <span className="font-medium">Labor:</span>
-                        <span className="text-sm text-gray-500 break-words">
-                          ({generatedInvoice.hoursWorked}hrs @ ${generatedInvoice.hourlyRate}/hr)
-                        </span>
-                      </div>
-                      <span className="font-mono text-right">${generatedInvoice.laborCost}</span>
-                    </div>
-                  )}
-
-                  {/* Total */}
-                  <div className="border-t-2 border-gray-400 mt-4 pt-4">
-                    <div className="flex justify-between py-2 text-xl font-bold text-gray-800">
-                      <span>TOTAL:</span>
-                      <span className="font-mono text-2xl">${generatedInvoice.total}</span>
-                    </div>
+                <div className="bg-gray-900 text-white p-8 rounded-lg">
+                  <div className="flex justify-between items-center">
+                    <span className="text-2xl font-bold">TOTAL:</span>
+                    <span className="text-3xl font-bold font-mono">${generatedInvoice.total}</span>
                   </div>
                 </div>
               </div>
