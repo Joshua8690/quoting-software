@@ -19,6 +19,8 @@ interface LineItem {
   quantityType: "dropdown" | "manual"
   lengthUnit: "inches" | "feet"
   widthUnit: "inches" | "feet"
+  sqft: string
+  inputMethod: "dimensions" | "sqft"
 }
 
 interface SheetSize {
@@ -55,6 +57,8 @@ export default function InvoicePage() {
       quantityType: "dropdown",
       lengthUnit: "inches",
       widthUnit: "inches",
+      sqft: "",
+      inputMethod: "dimensions",
     },
   ])
   const [generatedInvoice, setGeneratedInvoice] = useState<any>(null)
@@ -139,6 +143,8 @@ export default function InvoicePage() {
         quantityType: "dropdown",
         lengthUnit: "inches",
         widthUnit: "inches",
+        sqft: "",
+        inputMethod: "dimensions",
       },
     ])
     setSheetSize({ length: 5, width: 10, unit: "feet" })
@@ -190,6 +196,8 @@ export default function InvoicePage() {
         quantityType: "dropdown",
         lengthUnit: "inches",
         widthUnit: "inches",
+        sqft: "",
+        inputMethod: "dimensions",
       },
     ])
   }
@@ -209,17 +217,29 @@ export default function InvoicePage() {
   }
 
   const calculatePartCost = (item: LineItem) => {
+    const sheetCostValue = Number.parseFloat(sheetCost) || 0
+
+    if (item.inputMethod === "sqft") {
+      // Calculate cost based on square footage
+      const sheetAreaSqft = sheetSize.unit === "feet"
+        ? sheetSize.length * sheetSize.width
+        : (sheetSize.length * sheetSize.width) / 144
+      const costPerSqft = sheetAreaSqft > 0 ? sheetCostValue / sheetAreaSqft : 0
+      const itemSqft = Number.parseFloat(item.sqft) || 0
+      return costPerSqft * itemSqft * (Number.parseFloat(item.quantity) || 0)
+    }
+
+    // Calculate cost based on dimensions
     const sheetArea =
       sheetSize.unit === "feet"
         ? sheetSize.length * sheetSize.width * 144 // sheet size in square inches
         : sheetSize.length * sheetSize.width // sheet size already in square inches
-    const sheetCostValue = Number.parseFloat(sheetCost) || 0
     const partLength = item.lengthUnit === "feet" ? Number.parseFloat(item.length) * 12 : Number.parseFloat(item.length)
     const partWidth = item.widthUnit === "feet" ? Number.parseFloat(item.width) * 12 : Number.parseFloat(item.width)
     const partArea = partLength * partWidth
     const partsPerSheet = Math.floor(sheetArea / partArea) || 1 // Prevent division by zero
     const costPerPart = sheetCostValue / partsPerSheet
-    return costPerPart * Number.parseFloat(item.quantity)
+    return costPerPart * (Number.parseFloat(item.quantity) || 0)
   }
 
   const calculatePlasmaCuttingCost = () => {
@@ -321,6 +341,8 @@ export default function InvoicePage() {
         materialType,
         lineItems: lineItems.map((item) => ({
           ...item,
+          sqft: item.sqft || "",
+          inputMethod: item.inputMethod || "dimensions",
           cost: calculatePartCost(item).toFixed(2),
         })),
         formingCost,
@@ -570,7 +592,10 @@ View full invoice: ${shareableLink}
       generatedInvoice.lineItems.forEach((item: any, index: number) => {
         doc.text((index + 1).toString(), 25, yPos)
         doc.text(item.description || "Custom Part", 35, yPos)
-        doc.text(`${item.length} ${item.lengthUnit} × ${item.width} ${item.widthUnit}`, 110, yPos)
+        const dimText = item.inputMethod === "sqft"
+          ? `${item.sqft} sq ft`
+          : `${item.length} ${item.lengthUnit} × ${item.width} ${item.widthUnit}`
+        doc.text(dimText, 110, yPos)
         doc.text(item.quantity, 160, yPos)
 
         yPos += 10
@@ -976,113 +1001,149 @@ View full invoice: ${shareableLink}
       <div className="mb-6">
         <h2 className="text-xl font-semibold mb-4">Line Items</h2>
         {lineItems.map((item, index) => (
-          <div key={index} className="flex items-end gap-2 mb-2">
-            <div className="flex-grow">
-              <Label htmlFor={`description-${index}`}>Description</Label>
-              <Input
-                id={`description-${index}`}
-                value={item.description}
-                onChange={(e) => updateLineItem(index, "description", e.target.value)}
-                placeholder="Item description"
-              />
-            </div>
-            <div className="w-32 flex flex-col">
-              <Label htmlFor={`length-${index}`}>Length</Label>
-              <div className="flex">
+          <div key={index} className="border border-gray-200 rounded-lg p-3 mb-3">
+            <div className="flex items-end gap-2 mb-2">
+              <div className="flex-grow">
+                <Label htmlFor={`description-${index}`}>Description</Label>
                 <Input
-                  id={`length-${index}`}
-                  type="number"
-                  value={item.length}
-                  onChange={(e) => updateLineItem(index, "length", e.target.value)}
-                  min="0"
-                  step="0.001"
-                  placeholder="0.000"
-                  className="w-20"
+                  id={`description-${index}`}
+                  value={item.description}
+                  onChange={(e) => updateLineItem(index, "description", e.target.value)}
+                  placeholder="Item description"
                 />
+              </div>
+              <div className="w-28">
+                <Label>Size Input</Label>
                 <Select
-                  value={item.lengthUnit}
-                  onValueChange={(value) => updateLineItem(index, "lengthUnit", value as "inches" | "feet")}
+                  value={item.inputMethod}
+                  onValueChange={(value) => updateLineItem(index, "inputMethod", value as "dimensions" | "sqft")}
                 >
-                  <SelectTrigger className="w-16 ml-1">
+                  <SelectTrigger className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="inches">in</SelectItem>
-                    <SelectItem value="feet">ft</SelectItem>
+                    <SelectItem value="dimensions">L x W</SelectItem>
+                    <SelectItem value="sqft">Sq Ft</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+              <Button variant="destructive" size="icon" onClick={() => removeLineItem(index)}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
             </div>
-            <div className="w-32 flex flex-col">
-              <Label htmlFor={`width-${index}`}>Width</Label>
-              <div className="flex">
-                <Input
-                  id={`width-${index}`}
-                  type="number"
-                  value={item.width}
-                  onChange={(e) => updateLineItem(index, "width", e.target.value)}
-                  min="0"
-                  step="0.001"
-                  placeholder="0.000"
-                  className="w-20"
-                />
-                <Select
-                  value={item.widthUnit}
-                  onValueChange={(value) => updateLineItem(index, "widthUnit", value as "inches" | "feet")}
-                >
-                  <SelectTrigger className="w-16 ml-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="inches">in</SelectItem>
-                    <SelectItem value="feet">ft</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="w-32">
-              <Label htmlFor={`quantity-${index}`}>Quantity</Label>
-              <div className="flex">
-                {item.quantityType === "dropdown" ? (
-                  <Select value={item.quantity} onValueChange={(value) => updateLineItem(index, "quantity", value)}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select quantity" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {[...Array(100)].map((_, i) => (
-                        <SelectItem key={i + 1} value={(i + 1).toString()}>
-                          {i + 1}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
+            <div className="flex items-end gap-2">
+              {item.inputMethod === "dimensions" ? (
+                <>
+                  <div className="w-32 flex flex-col">
+                    <Label htmlFor={`length-${index}`}>Length</Label>
+                    <div className="flex">
+                      <Input
+                        id={`length-${index}`}
+                        type="number"
+                        value={item.length}
+                        onChange={(e) => updateLineItem(index, "length", e.target.value)}
+                        min="0"
+                        step="0.001"
+                        placeholder="0.000"
+                        className="w-20"
+                      />
+                      <Select
+                        value={item.lengthUnit}
+                        onValueChange={(value) => updateLineItem(index, "lengthUnit", value as "inches" | "feet")}
+                      >
+                        <SelectTrigger className="w-16 ml-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="inches">in</SelectItem>
+                          <SelectItem value="feet">ft</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="w-32 flex flex-col">
+                    <Label htmlFor={`width-${index}`}>Width</Label>
+                    <div className="flex">
+                      <Input
+                        id={`width-${index}`}
+                        type="number"
+                        value={item.width}
+                        onChange={(e) => updateLineItem(index, "width", e.target.value)}
+                        min="0"
+                        step="0.001"
+                        placeholder="0.000"
+                        className="w-20"
+                      />
+                      <Select
+                        value={item.widthUnit}
+                        onValueChange={(value) => updateLineItem(index, "widthUnit", value as "inches" | "feet")}
+                      >
+                        <SelectTrigger className="w-16 ml-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="inches">in</SelectItem>
+                          <SelectItem value="feet">ft</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="w-40 flex flex-col">
+                  <Label htmlFor={`sqft-${index}`}>Square Feet</Label>
                   <Input
-                    id={`quantity-${index}`}
+                    id={`sqft-${index}`}
                     type="number"
-                    value={item.quantity}
-                    onChange={(e) => updateLineItem(index, "quantity", e.target.value)}
-                    min="1"
-                    step="1"
-                    placeholder="Enter quantity"
+                    value={item.sqft}
+                    onChange={(e) => updateLineItem(index, "sqft", e.target.value)}
+                    min="0"
+                    step="0.01"
+                    placeholder="Enter sq ft"
                   />
-                )}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={() =>
-                    updateLineItem(index, "quantityType", item.quantityType === "dropdown" ? "manual" : "dropdown")
-                  }
-                  className="ml-2"
-                >
-                  {item.quantityType === "dropdown" ? "✎" : "▼"}
-                </Button>
+                </div>
+              )}
+              <div className="w-32">
+                <Label htmlFor={`quantity-${index}`}>Quantity</Label>
+                <div className="flex">
+                  {item.quantityType === "dropdown" ? (
+                    <Select value={item.quantity} onValueChange={(value) => updateLineItem(index, "quantity", value)}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select quantity" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[...Array(100)].map((_, i) => (
+                          <SelectItem key={i + 1} value={(i + 1).toString()}>
+                            {i + 1}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input
+                      id={`quantity-${index}`}
+                      type="number"
+                      value={item.quantity}
+                      onChange={(e) => updateLineItem(index, "quantity", e.target.value)}
+                      min="1"
+                      step="1"
+                      placeholder="Enter quantity"
+                    />
+                  )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() =>
+                      updateLineItem(index, "quantityType", item.quantityType === "dropdown" ? "manual" : "dropdown")
+                    }
+                    className="ml-2"
+                  >
+                    {item.quantityType === "dropdown" ? "✎" : "▼"}
+                  </Button>
+                </div>
               </div>
             </div>
-            <Button variant="destructive" size="icon" onClick={() => removeLineItem(index)}>
-              <Trash2 className="h-4 w-4" />
-            </Button>
           </div>
         ))}
         <Button onClick={addLineItem} className="mt-2">
@@ -1299,7 +1360,7 @@ View full invoice: ${shareableLink}
                       Description
                     </th>
                     <th className="border border-gray-300 px-4 py-4 text-center font-semibold text-gray-700 min-w-[150px]">
-                      Dimensions
+                      Dimensions / Sq Ft
                     </th>
                     <th className="border border-gray-300 px-3 py-4 text-center font-semibold text-gray-700 w-20">
                       Qty
@@ -1314,7 +1375,9 @@ View full invoice: ${shareableLink}
                         {item.description || "Custom Part"}
                       </td>
                       <td className="border border-gray-300 px-4 py-4 text-center whitespace-nowrap">
-                        {item.length} {item.lengthUnit} × {item.width} {item.widthUnit}
+                        {item.inputMethod === "sqft"
+                          ? `${item.sqft} sq ft`
+                          : `${item.length} ${item.lengthUnit} × ${item.width} ${item.widthUnit}`}
                       </td>
                       <td className="border border-gray-300 px-3 py-4 text-center">{item.quantity}</td>
                     </tr>
