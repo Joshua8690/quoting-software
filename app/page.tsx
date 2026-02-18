@@ -655,196 +655,198 @@ View full invoice: ${shareableLink}
 
   const generatePDF = () => {
     if (generatedInvoice) {
-      const doc = new jsPDF()
-      const pageWidth = 210
-      const margin = 12
+      // US Letter: 215.9 x 279.4 mm
+      const doc = new jsPDF({ format: "letter", unit: "mm" })
+      const pageWidth = 215.9
+      const pageHeight = 279.4
+      const margin = 16
       const contentWidth = pageWidth - margin * 2
       const isQuote = generatedInvoice.documentType === "quote"
       const docLabel = isQuote ? "QUOTE" : "INVOICE"
 
       // ===== HEADER =====
       doc.setFillColor(249, 250, 251)
-      doc.rect(0, 0, pageWidth, 42, "F")
+      doc.rect(0, 0, pageWidth, 50, "F")
       doc.setDrawColor(229, 231, 235)
       doc.setLineWidth(0.5)
-      doc.line(0, 42, pageWidth, 42)
+      doc.line(0, 50, pageWidth, 50)
 
       doc.setTextColor(31, 41, 55)
-      doc.setFontSize(16)
+      doc.setFontSize(22)
       doc.setFont("helvetica", "bold")
-      doc.text(generatedInvoice.companyInfo.name, margin, 14)
+      doc.text(generatedInvoice.companyInfo.name, margin, 20)
 
       doc.setTextColor(75, 85, 99)
-      doc.setFontSize(7)
+      doc.setFontSize(10)
       doc.setFont("helvetica", "normal")
-      doc.text(generatedInvoice.companyInfo.address, margin, 21)
-      doc.text(generatedInvoice.companyInfo.phone, margin, 27)
+      doc.text(generatedInvoice.companyInfo.address, margin, 29)
+      doc.text(generatedInvoice.companyInfo.phone, margin, 36)
 
       // Badge
       if (isQuote) { doc.setFillColor(37, 99, 235) } else { doc.setFillColor(22, 163, 74) }
-      doc.roundedRect(162, 7, 36, 10, 2, 2, "F")
+      doc.roundedRect(163, 10, 40, 12, 2, 2, "F")
       doc.setTextColor(255, 255, 255)
-      doc.setFontSize(9)
+      doc.setFontSize(12)
       doc.setFont("helvetica", "bold")
-      doc.text(docLabel, isQuote ? 168 : 167, 14)
+      doc.text(docLabel, isQuote ? 170 : 169, 19)
 
       // Detail box
-      const bx = 145, by = 20, bw = 53, bh = 20
+      const bx = 148, by = 26, bw = 55, bh = 22
       if (isQuote) { doc.setDrawColor(147, 197, 253) } else { doc.setDrawColor(134, 239, 172) }
-      doc.setLineWidth(0.6)
-      doc.roundedRect(bx, by, bw, bh, 1.5, 1.5, "S")
+      doc.setLineWidth(0.7)
+      doc.roundedRect(bx, by, bw, bh, 2, 2, "S")
 
       doc.setTextColor(55, 65, 81)
-      doc.setFontSize(6.5)
+      doc.setFontSize(8)
       doc.setFont("helvetica", "bold")
-      doc.text(`${isQuote ? "Quote" : "Invoice"} #:`, bx + 2, by + 5)
+      doc.text(`${isQuote ? "Quote" : "Invoice"} #:`, bx + 3, by + 6)
       doc.setFont("helvetica", "normal")
-      doc.text(generatedInvoice.invoiceNumber, bx + bw - 2, by + 5, { align: "right" })
+      doc.text(generatedInvoice.invoiceNumber, bx + bw - 3, by + 6, { align: "right" })
 
       if (isQuote) { doc.setDrawColor(191, 219, 254) } else { doc.setDrawColor(187, 247, 208) }
-      doc.setLineWidth(0.2)
-      doc.line(bx + 1, by + 7, bx + bw - 1, by + 7)
+      doc.setLineWidth(0.3)
+      doc.line(bx + 2, by + 8, bx + bw - 2, by + 8)
 
       doc.setFont("helvetica", "bold")
-      doc.text("Date:", bx + 2, by + 11.5)
+      doc.text("Date:", bx + 3, by + 13)
       doc.setFont("helvetica", "normal")
-      doc.text(new Date(generatedInvoice.date).toLocaleDateString(), bx + bw - 2, by + 11.5, { align: "right" })
+      doc.text(new Date(generatedInvoice.date).toLocaleDateString(), bx + bw - 3, by + 13, { align: "right" })
 
-      doc.line(bx + 1, by + 13.5, bx + bw - 1, by + 13.5)
+      doc.line(bx + 2, by + 15, bx + bw - 2, by + 15)
 
       const dueDateLabel = isQuote ? "Valid Until:" : "Due Date:"
       const dueDate = isQuote
         ? new Date(new Date(generatedInvoice.date).getTime() + 24 * 60 * 60 * 1000).toLocaleDateString()
         : new Date(new Date(generatedInvoice.date).getTime() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()
       doc.setFont("helvetica", "bold")
-      doc.text(dueDateLabel, bx + 2, by + 18)
+      doc.text(dueDateLabel, bx + 3, by + 20)
       doc.setFont("helvetica", "normal")
-      doc.text(dueDate, bx + bw - 2, by + 18, { align: "right" })
+      doc.text(dueDate, bx + bw - 3, by + 20, { align: "right" })
 
       // ===== BILL TO =====
-      let yPos = 49
+      let yPos = 60
       doc.setTextColor(31, 41, 55)
-      doc.setFontSize(9)
+      doc.setFontSize(12)
       doc.setFont("helvetica", "bold")
       doc.text("Bill To:", margin, yPos)
       doc.setDrawColor(209, 213, 219)
-      doc.setLineWidth(0.2)
-      doc.line(margin, yPos + 1.5, margin + 20, yPos + 1.5)
-      yPos += 6
+      doc.setLineWidth(0.3)
+      doc.line(margin, yPos + 2, margin + 25, yPos + 2)
+      yPos += 8
 
       doc.setTextColor(55, 65, 81)
-      doc.setFontSize(9)
+      doc.setFontSize(11)
       doc.setFont("helvetica", "bold")
       doc.text(generatedInvoice.customerName, margin, yPos)
-      yPos += 5
+      yPos += 6
 
-      doc.setFontSize(7.5)
+      doc.setFontSize(9)
       doc.setFont("helvetica", "normal")
 
       if (generatedInvoice.projectName && generatedInvoice.projectName.trim()) {
         doc.setFont("helvetica", "bold")
         doc.text("Project: ", margin, yPos)
         doc.setFont("helvetica", "normal")
-        doc.text(generatedInvoice.projectName, margin + 15, yPos)
-        yPos += 4.5
+        doc.text(generatedInvoice.projectName, margin + 18, yPos)
+        yPos += 5.5
       }
       if (generatedInvoice.customerEmail) {
         doc.setFont("helvetica", "bold")
         doc.text("Email: ", margin, yPos)
         doc.setFont("helvetica", "normal")
-        doc.text(generatedInvoice.customerEmail, margin + 12, yPos)
-        yPos += 4.5
+        doc.text(generatedInvoice.customerEmail, margin + 14, yPos)
+        yPos += 5.5
       }
       if (generatedInvoice.poNumber) {
         doc.setFont("helvetica", "bold")
         doc.text("PO #: ", margin, yPos)
         doc.setFont("helvetica", "normal")
-        doc.text(generatedInvoice.poNumber, margin + 12, yPos)
-        yPos += 4.5
+        doc.text(generatedInvoice.poNumber, margin + 14, yPos)
+        yPos += 5.5
       }
 
-      yPos += 2
+      yPos += 4
       doc.setDrawColor(229, 231, 235)
-      doc.setLineWidth(0.3)
+      doc.setLineWidth(0.4)
       doc.line(margin, yPos, pageWidth - margin, yPos)
-      yPos += 5
+      yPos += 8
 
       // ===== TABLE =====
       doc.setTextColor(31, 41, 55)
-      doc.setFontSize(10)
+      doc.setFontSize(13)
       doc.setFont("helvetica", "bold")
       doc.text(`Itemized ${isQuote ? "Quote" : "Invoice"}`, margin, yPos)
-      yPos += 5
+      yPos += 7
 
-      const colX = { num: margin, desc: margin + 10, dim: 118, qty: 176 }
-      const rowH = 8
+      const colX = { num: margin, desc: margin + 14, dim: 122, qty: 180 }
+      const rowH = 10
 
       doc.setFillColor(243, 244, 246)
-      doc.rect(margin, yPos - 4, contentWidth, rowH, "F")
+      doc.rect(margin, yPos - 5, contentWidth, rowH, "F")
       doc.setDrawColor(209, 213, 219)
-      doc.setLineWidth(0.2)
-      doc.rect(margin, yPos - 4, contentWidth, rowH, "S")
+      doc.setLineWidth(0.3)
+      doc.rect(margin, yPos - 5, contentWidth, rowH, "S")
 
-      doc.setFontSize(7.5)
+      doc.setFontSize(9)
       doc.setFont("helvetica", "bold")
       doc.setTextColor(55, 65, 81)
-      doc.text("#", colX.num + 2, yPos + 1)
-      doc.text("Description", colX.desc + 2, yPos + 1)
+      doc.text("#", colX.num + 3, yPos + 1)
+      doc.text("Description", colX.desc + 3, yPos + 1)
       doc.text("Dimensions / Sq Ft", colX.dim, yPos + 1)
-      doc.text("Qty", colX.qty + 2, yPos + 1)
+      doc.text("Qty", colX.qty + 3, yPos + 1)
 
       yPos += rowH + 1
 
       doc.setFont("helvetica", "normal")
-      doc.setFontSize(7.5)
+      doc.setFontSize(9)
       doc.setTextColor(31, 41, 55)
 
       generatedInvoice.lineItems.forEach((item: any, index: number) => {
         doc.setDrawColor(209, 213, 219)
-        doc.rect(margin, yPos - 4, contentWidth, rowH, "S")
+        doc.rect(margin, yPos - 5, contentWidth, rowH, "S")
 
-        doc.text((index + 1).toString(), colX.num + 3, yPos + 1)
-        doc.text(item.description || "Custom Part", colX.desc + 2, yPos + 1)
+        doc.text((index + 1).toString(), colX.num + 4, yPos + 1)
+        doc.text(item.description || "Custom Part", colX.desc + 3, yPos + 1)
         const dimText = item.inputMethod === "sqft"
           ? `${item.sqft} sq ft`
           : `${item.length} ${item.lengthUnit} x ${item.width} ${item.widthUnit}`
         doc.text(dimText, colX.dim, yPos + 1)
-        doc.text(item.quantity, colX.qty + 4, yPos + 1)
+        doc.text(item.quantity, colX.qty + 5, yPos + 1)
         yPos += rowH
       })
 
-      yPos += 8
+      yPos += 12
 
       // ===== TOTAL =====
-      const tbW = contentWidth * 0.5
+      const tbW = contentWidth * 0.45
       const tbX = pageWidth - margin - tbW
-      const tbH = 16
+      const tbH = 20
 
       doc.setFillColor(17, 24, 39)
-      doc.roundedRect(tbX, yPos, tbW, tbH, 2, 2, "F")
+      doc.roundedRect(tbX, yPos, tbW, tbH, 3, 3, "F")
 
       doc.setTextColor(255, 255, 255)
       doc.setFont("helvetica", "bold")
-      doc.setFontSize(12)
-      doc.text("TOTAL:", tbX + 8, yPos + 11)
-      doc.text(`$${generatedInvoice.total}`, tbX + tbW - 8, yPos + 11, { align: "right" })
+      doc.setFontSize(16)
+      doc.text("TOTAL:", tbX + 10, yPos + 14)
+      doc.text(`$${generatedInvoice.total}`, tbX + tbW - 10, yPos + 14, { align: "right" })
 
-      yPos += tbH + 10
+      yPos += tbH + 14
 
       // ===== TERMS =====
-      const termsH = 32
+      const termsH = 38
       doc.setFillColor(249, 250, 251)
-      doc.rect(margin, yPos - 3, contentWidth, termsH, "F")
+      doc.rect(margin, yPos - 4, contentWidth, termsH, "F")
       doc.setDrawColor(229, 231, 235)
-      doc.rect(margin, yPos - 3, contentWidth, termsH, "S")
+      doc.rect(margin, yPos - 4, contentWidth, termsH, "S")
 
       doc.setTextColor(31, 41, 55)
-      doc.setFontSize(8)
+      doc.setFontSize(10)
       doc.setFont("helvetica", "bold")
-      doc.text(isQuote ? "Terms & Conditions:" : "Payment Terms:", margin + 4, yPos + 3)
+      doc.text(isQuote ? "Terms & Conditions:" : "Payment Terms:", margin + 5, yPos + 4)
 
       doc.setFont("helvetica", "normal")
-      doc.setFontSize(6.5)
+      doc.setFontSize(8)
       doc.setTextColor(75, 85, 99)
       const terms = isQuote
         ? [
@@ -860,27 +862,27 @@ View full invoice: ${shareableLink}
             "Thank you for your business!",
           ]
       terms.forEach((term, i) => {
-        doc.text(`\u2022  ${term}`, margin + 6, yPos + 9 + i * 5)
+        doc.text(`\u2022  ${term}`, margin + 8, yPos + 12 + i * 6)
       })
 
-      yPos += termsH + 4
-
-      // ===== FOOTER =====
-      const footerY = Math.max(yPos, 275)
+      // ===== FOOTER (pinned to bottom of page) =====
+      const footerH = 22
+      const footerY = pageHeight - footerH
       doc.setFillColor(31, 41, 55)
-      doc.rect(0, footerY, pageWidth, 22, "F")
+      doc.rect(0, footerY, pageWidth, footerH, "F")
 
       doc.setTextColor(255, 255, 255)
       doc.setFont("helvetica", "normal")
-      doc.setFontSize(7)
+      doc.setFontSize(9)
       doc.text(
         `Thank you for choosing ${generatedInvoice.companyInfo.name}. We appreciate your business!`,
-        pageWidth / 2, footerY + 8, { align: "center" },
+        pageWidth / 2, footerY + 9, { align: "center" },
       )
       doc.setTextColor(209, 213, 219)
+      doc.setFontSize(8)
       doc.text(
         `For questions, please contact us at ${generatedInvoice.companyInfo.phone}`,
-        pageWidth / 2, footerY + 15, { align: "center" },
+        pageWidth / 2, footerY + 16, { align: "center" },
       )
 
       doc.save(`${isQuote ? "Quote" : "Invoice"}_${generatedInvoice.invoiceNumber}.pdf`)
