@@ -30,20 +30,15 @@ interface SheetSize {
   custom?: boolean
 }
 
-interface SavedCompany {
-  name: string
-  phone: string
-  address: string
-}
-
 const materialTypes = ["Mild Steel", "Stainless Steel", "Aluminum", "Galvanized"]
 
 export default function InvoicePage() {
-  const [companyInfo, setCompanyInfo] = useState({
-    name: "",
-    phone: "",
-    address: "",
-  })
+  const MY_COMPANY = {
+    name: "MHB FARMS / METALSHOP",
+    phone: "(509) 770-1696",
+    address: "21344 RD 18 NE Marlin WA 98832",
+  }
+  const [companyInfo] = useState(MY_COMPANY)
   const [customerName, setCustomerName] = useState("")
   const [projectName, setProjectName] = useState("")
   const [sheetCost, setSheetCost] = useState("")
@@ -78,7 +73,6 @@ export default function InvoicePage() {
   const [savedDrafts, setSavedDrafts] = useState<any[]>([])
 
   // Saved data states
-  const [savedCompanies, setSavedCompanies] = useState<SavedCompany[]>([])
   const [savedCustomerNames, setSavedCustomerNames] = useState<string[]>([])
   const [savedProjectNames, setSavedProjectNames] = useState<string[]>([])
   const [savedCustomerEmails, setSavedCustomerEmails] = useState<string[]>([])
@@ -87,13 +81,11 @@ export default function InvoicePage() {
   // Load saved data on component mount
   useEffect(() => {
     const loadSavedData = () => {
-      const companies = localStorage.getItem("savedCompanies")
       const customerNames = localStorage.getItem("savedCustomerNames")
       const projectNames = localStorage.getItem("savedProjectNames")
       const customerEmails = localStorage.getItem("savedCustomerEmails")
       const poNumbers = localStorage.getItem("savedPoNumbers")
 
-      if (companies) setSavedCompanies(JSON.parse(companies))
       if (customerNames) setSavedCustomerNames(JSON.parse(customerNames))
       if (projectNames) setSavedProjectNames(JSON.parse(projectNames))
       if (customerEmails) setSavedCustomerEmails(JSON.parse(customerEmails))
@@ -118,13 +110,6 @@ export default function InvoicePage() {
     return [item, ...filtered].slice(0, 10) // Keep only 10 most recent
   }
 
-  // Add unique company
-  const addUniqueCompany = (companies: SavedCompany[], company: SavedCompany): SavedCompany[] => {
-    if (!company.name.trim()) return companies
-    const filtered = companies.filter((existing) => existing.name !== company.name)
-    return [company, ...filtered].slice(0, 10) // Keep only 10 most recent
-  }
-
   // Generate sequential invoice number
   const generateInvoiceNumber = () => {
     const storedCounter = localStorage.getItem("invoiceCounter")
@@ -134,7 +119,6 @@ export default function InvoicePage() {
   }
 
   const clearInvoice = () => {
-    setCompanyInfo({ name: "", phone: "", address: "" })
     setCustomerName("")
     setProjectName("")
     setSheetCost("")
@@ -169,7 +153,7 @@ export default function InvoicePage() {
   const saveDraft = () => {
     const draft = {
       id: Date.now(),
-      companyInfo,
+      companyInfo: MY_COMPANY,
       customerName,
       projectName,
       sheetCost,
@@ -197,7 +181,6 @@ export default function InvoicePage() {
   }
 
   const loadDraft = (draft: any) => {
-    setCompanyInfo(draft.companyInfo || { name: "", phone: "", address: "" })
     setCustomerName(draft.customerName || "")
     setProjectName(draft.projectName || "")
     setSheetCost(draft.sheetCost || "")
@@ -225,6 +208,47 @@ export default function InvoicePage() {
     toast.success("Draft deleted.")
   }
 
+  const loadInvoiceForEdit = (invoice: any) => {
+    setCustomerName(invoice.customerName || "")
+    setProjectName(invoice.projectName || "")
+    setSheetCost(invoice.sheetCost || "")
+    setMarkupPercentage(invoice.markupPercentage || "30")
+    setLineItems(
+      invoice.lineItems?.map((item: any) => ({
+        description: item.description || "",
+        length: item.length || "",
+        width: item.width || "",
+        quantity: item.quantity || "1",
+        quantityType: item.quantityType || "dropdown",
+        lengthUnit: item.lengthUnit || "inches",
+        widthUnit: item.widthUnit || "inches",
+        sqft: item.sqft || "",
+        inputMethod: item.inputMethod || "dimensions",
+      })) || [{ description: "", length: "", width: "", quantity: "1", quantityType: "dropdown", lengthUnit: "inches", widthUnit: "inches", sqft: "", inputMethod: "dimensions" }]
+    )
+    setSheetSize(invoice.sheetSize || { length: 5, width: 10, unit: "feet" })
+    setMaterialType(invoice.materialType || materialTypes[0])
+    setFormingCost(invoice.formingCost || "")
+    setFormingCostMethod(invoice.formingCostMethod || "perItem")
+    setPoNumber(invoice.poNumber || "")
+    setCustomSheetSize(invoice.customSheetSize || { length: 0, width: 0, unit: "feet" })
+    setHourlyRate(invoice.hourlyRate || "")
+    setHoursWorked(invoice.hoursWorked || "")
+    setCustomerEmail(invoice.customerEmail || "")
+    setPlasmaCuttingMinutes(invoice.plasmaCuttingMinutes || "")
+    setPlasmaCostPerMinute(invoice.plasmaCostPerMinute || "")
+    setGeneratedInvoice(null)
+    window.scrollTo({ top: 0, behavior: "smooth" })
+    toast.success("Invoice loaded for editing! Make your changes and generate a new invoice.")
+  }
+
+  const deleteInvoice = (invoiceId: number) => {
+    const updatedInvoices = recentInvoices.filter((inv) => inv.id !== invoiceId)
+    setRecentInvoices(updatedInvoices)
+    localStorage.setItem("recentInvoices", JSON.stringify(updatedInvoices))
+    toast.success("Invoice deleted.")
+  }
+
   useEffect(() => {
     if (generatedInvoice) {
       console.log("Generated invoice updated:", generatedInvoice)
@@ -234,20 +258,6 @@ export default function InvoicePage() {
       setRecentInvoices(JSON.parse(storedInvoices))
     }
   }, [generatedInvoice])
-
-  const updateCompanyInfo = (field: string, value: string) => {
-    setCompanyInfo((prev) => ({ ...prev, [field]: value }))
-  }
-
-  // Handle company selection from dropdown
-  const handleCompanySelect = (companyName: string) => {
-    const selectedCompany = savedCompanies.find((company) => company.name === companyName)
-    if (selectedCompany) {
-      setCompanyInfo(selectedCompany)
-    } else {
-      setCompanyInfo((prev) => ({ ...prev, name: companyName }))
-    }
-  }
 
   const addLineItem = () => {
     setLineItems([
@@ -354,12 +364,6 @@ export default function InvoicePage() {
       console.time("Invoice Generation Time")
 
       // Save current entries to localStorage
-      if (companyInfo.name.trim()) {
-        const updatedCompanies = addUniqueCompany(savedCompanies, companyInfo)
-        setSavedCompanies(updatedCompanies)
-        saveToLocalStorage("savedCompanies", updatedCompanies)
-      }
-
       if (customerName.trim()) {
         const updatedCustomerNames = addUniqueItem(savedCustomerNames, customerName)
         setSavedCustomerNames(updatedCustomerNames)
@@ -761,52 +765,13 @@ View full invoice: ${shareableLink}
         </div>
       </div>
 
-      {/* Company Information with Dropdowns */}
-      <div className="mb-6">
-        <h2 className="text-xl font-semibold mb-4">Company Information</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <Label htmlFor="companyName">Company Name</Label>
-            <Select value={companyInfo.name} onValueChange={handleCompanySelect}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select or type company name" />
-              </SelectTrigger>
-              <SelectContent>
-                {savedCompanies.map((company, index) => (
-                  <SelectItem key={index} value={company.name}>
-                    {company.name} ({company.phone})
-                  </SelectItem>
-                ))}
-                <SelectItem value="__custom__">Type new company...</SelectItem>
-              </SelectContent>
-            </Select>
-            {(companyInfo.name === "__custom__" || !savedCompanies.find((c) => c.name === companyInfo.name)) && (
-              <Input
-                className="mt-2"
-                value={companyInfo.name === "__custom__" ? "" : companyInfo.name}
-                onChange={(e) => updateCompanyInfo("name", e.target.value)}
-                placeholder="Enter company name"
-              />
-            )}
-          </div>
-          <div>
-            <Label htmlFor="companyPhone">Phone Number</Label>
-            <Input
-              id="companyPhone"
-              value={companyInfo.phone}
-              onChange={(e) => updateCompanyInfo("phone", e.target.value)}
-              placeholder="Enter phone number"
-            />
-          </div>
-          <div>
-            <Label htmlFor="companyAddress">Address</Label>
-            <Input
-              id="companyAddress"
-              value={companyInfo.address}
-              onChange={(e) => updateCompanyInfo("address", e.target.value)}
-              placeholder="Enter company address"
-            />
-          </div>
+      {/* Company Information - Auto-filled */}
+      <div className="mb-6 bg-gray-50 border border-gray-200 rounded-lg p-4">
+        <h2 className="text-xl font-semibold mb-2">Your Company</h2>
+        <div className="flex flex-wrap gap-6 text-gray-700">
+          <p className="font-bold text-lg">{MY_COMPANY.name}</p>
+          <p>{MY_COMPANY.phone}</p>
+          <p>{MY_COMPANY.address}</p>
         </div>
       </div>
 
@@ -1536,7 +1501,7 @@ View full invoice: ${shareableLink}
         </div>
       )}
 
-      <RecentQuotes quotes={recentInvoices} />
+      <RecentQuotes quotes={recentInvoices} onEdit={loadInvoiceForEdit} onDelete={deleteInvoice} />
     </div>
   )
 }

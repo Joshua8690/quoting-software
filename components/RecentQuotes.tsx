@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Trash2, Pencil } from "lucide-react"
 
 interface Invoice {
   id: number
@@ -21,27 +22,41 @@ interface Invoice {
     quantity: string
     lengthUnit: string
     widthUnit: string
+    sqft?: string
+    inputMethod?: string
   }[]
   customerEmail?: string
+  sheetSize?: any
+  materialType?: string
+  sheetCost?: string
+  markupPercentage?: string
+  formingCost?: string
+  formingCostMethod?: string
+  hourlyRate?: string
+  hoursWorked?: string
+  plasmaCuttingMinutes?: string
+  plasmaCostPerMinute?: string
 }
 
 interface RecentQuotesProps {
   quotes: Invoice[]
+  onEdit?: (invoice: Invoice) => void
+  onDelete?: (invoiceId: number) => void
 }
 
-export function RecentQuotes({ quotes }: RecentQuotesProps) {
+export function RecentQuotes({ quotes, onEdit, onDelete }: RecentQuotesProps) {
   if (!quotes || quotes.length === 0) {
     return (
       <div className="mt-8">
-        <h2 className="text-2xl font-bold mb-4">Recent Invoices</h2>
-        <p className="text-gray-500">No recent invoices found. Generate an invoice to see it here.</p>
+        <h2 className="text-2xl font-bold mb-4">Saved Invoices</h2>
+        <p className="text-gray-500">No saved invoices found. Generate an invoice to see it here.</p>
       </div>
     )
   }
 
   return (
     <div className="mt-8">
-      <h2 className="text-2xl font-bold mb-4">Recent Invoices</h2>
+      <h2 className="text-2xl font-bold mb-4">Saved Invoices</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {quotes.map((invoice) => (
           <div key={invoice.id} className="border border-gray-200 p-4 rounded-lg shadow-sm bg-white hover:shadow-md transition-shadow">
@@ -59,10 +74,10 @@ export function RecentQuotes({ quotes }: RecentQuotesProps) {
             )}
             <p className="mt-2 text-xl font-bold text-gray-900">${invoice.total}</p>
             <p className="text-sm text-gray-500">{new Date(invoice.date).toLocaleDateString()}</p>
-            <div className="mt-3">
+            <div className="mt-3 flex gap-2">
               <Dialog>
                 <DialogTrigger asChild>
-                  <Button className="w-full">View Details</Button>
+                  <Button className="flex-1" variant="outline">View</Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
                   <DialogHeader>
@@ -107,7 +122,9 @@ export function RecentQuotes({ quotes }: RecentQuotesProps) {
                               <td className="border border-gray-200 px-3 py-2">{index + 1}</td>
                               <td className="border border-gray-200 px-3 py-2">{item.description || "Custom Part"}</td>
                               <td className="border border-gray-200 px-3 py-2 text-center">
-                                {item.length} {item.lengthUnit} x {item.width} {item.widthUnit}
+                                {item.inputMethod === "sqft"
+                                  ? `${item.sqft} sq ft`
+                                  : `${item.length} ${item.lengthUnit} x ${item.width} ${item.widthUnit}`}
                               </td>
                               <td className="border border-gray-200 px-3 py-2 text-center">{item.quantity}</td>
                             </tr>
@@ -125,6 +142,16 @@ export function RecentQuotes({ quotes }: RecentQuotesProps) {
                   </div>
                 </DialogContent>
               </Dialog>
+              {onEdit && (
+                <Button onClick={() => onEdit(invoice)} className="flex-1 bg-blue-600 hover:bg-blue-700">
+                  <Pencil className="mr-1 h-4 w-4" /> Edit
+                </Button>
+              )}
+              {onDelete && (
+                <Button onClick={() => onDelete(invoice.id)} variant="destructive" size="icon">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           </div>
         ))}
