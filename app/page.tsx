@@ -70,6 +70,7 @@ export default function InvoicePage() {
   const [plasmaCuttingMinutes, setPlasmaCuttingMinutes] = useState("")
   const [plasmaCostPerMinute, setPlasmaCostPerMinute] = useState("")
   const [nextInvoiceNumber, setNextInvoiceNumber] = useState("1")
+  const [documentType, setDocumentType] = useState<"invoice" | "quote">("invoice")
 
   const [savedDrafts, setSavedDrafts] = useState<any[]>([])
 
@@ -406,6 +407,7 @@ export default function InvoicePage() {
 
       const invoiceData = {
         id: Date.now(),
+        documentType,
         invoiceNumber,
         companyInfo,
         customerName,
@@ -604,19 +606,25 @@ View full invoice: ${shareableLink}
       doc.text(generatedInvoice.companyInfo.address, margin, 28)
       doc.text(generatedInvoice.companyInfo.phone, margin, 35)
 
-      // INVOICE badge (right side) - blue box
-      doc.setFillColor(37, 99, 235) // bg-blue-600
-      doc.roundedRect(155, 8, 42, 14, 2, 2, "F")
+      // Document type badge (right side) - small, ink-friendly
+      const isQuote = generatedInvoice.documentType === "quote"
+      const docLabel = isQuote ? "QUOTE" : "INVOICE"
+      if (isQuote) {
+        doc.setFillColor(37, 99, 235) // blue
+      } else {
+        doc.setFillColor(22, 163, 74) // green
+      }
+      doc.roundedRect(158, 10, 38, 11, 2, 2, "F")
       doc.setTextColor(255, 255, 255)
-      doc.setFontSize(14)
+      doc.setFontSize(11)
       doc.setFont("helvetica", "bold")
-      doc.text("INVOICE", 164, 18)
+      doc.text(docLabel, isQuote ? 165 : 163, 18)
 
-      // Invoice details (right side, below badge)
+      // Document details (right side, below badge)
       doc.setTextColor(75, 85, 99)
       doc.setFontSize(8)
       doc.setFont("helvetica", "bold")
-      doc.text("Invoice #:", 148, 30)
+      doc.text(`${isQuote ? "Quote" : "Invoice"} #:`, 148, 30)
       doc.text("Date:", 148, 37)
       doc.text("Due Date:", 148, 44)
 
@@ -683,7 +691,7 @@ View full invoice: ${shareableLink}
       doc.setTextColor(31, 41, 55)
       doc.setFontSize(13)
       doc.setFont("helvetica", "bold")
-      doc.text("Itemized Invoice", margin, yPos)
+      doc.text(`Itemized ${isQuote ? "Quote" : "Invoice"}`, margin, yPos)
       yPos += 8
 
       // Table header
@@ -767,17 +775,24 @@ View full invoice: ${shareableLink}
       doc.setTextColor(31, 41, 55)
       doc.setFontSize(10)
       doc.setFont("helvetica", "bold")
-      doc.text("Payment Terms:", margin + 5, yPos + 3)
+      doc.text(isQuote ? "Terms & Conditions:" : "Payment Terms:", margin + 5, yPos + 3)
 
       doc.setFont("helvetica", "normal")
       doc.setFontSize(8)
       doc.setTextColor(75, 85, 99)
-      const terms = [
-        "Payment due within 30 days of invoice date",
-        "Late payments subject to 1.5% monthly service charge",
-        "Please include invoice number with payment",
-        "Thank you for your business!",
-      ]
+      const terms = isQuote
+        ? [
+            "This quote is valid for 30 days from the date above",
+            "Prices are subject to change after expiration",
+            `Please reference quote #${generatedInvoice.invoiceNumber} when placing order`,
+            "Thank you for your interest!",
+          ]
+        : [
+            "Payment due within 30 days of invoice date",
+            "Late payments subject to 1.5% monthly service charge",
+            "Please include invoice number with payment",
+            "Thank you for your business!",
+          ]
       terms.forEach((term, i) => {
         doc.text(`\u2022  ${term}`, margin + 8, yPos + 12 + i * 6)
       })
@@ -810,8 +825,8 @@ View full invoice: ${shareableLink}
         { align: "center" },
       )
 
-      doc.save(`Invoice_${generatedInvoice.invoiceNumber}.pdf`)
-      toast.success("Invoice PDF downloaded!")
+      doc.save(`${isQuote ? "Quote" : "Invoice"}_${generatedInvoice.invoiceNumber}.pdf`)
+      toast.success(`${isQuote ? "Quote" : "Invoice"} PDF downloaded!`)
     }
   }
 
@@ -819,13 +834,37 @@ View full invoice: ${shareableLink}
     <div className="container mx-auto p-4 max-w-4xl">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold">Invoice Generator</h1>
+          <h1 className="text-3xl font-bold">{documentType === "invoice" ? "Invoice" : "Quote"} Generator</h1>
           <TimestampClock />
         </div>
         <div className="flex gap-2">
           <Button onClick={saveDraft} variant="outline">Save Draft</Button>
-          <Button onClick={clearInvoice}>New Invoice</Button>
+          <Button onClick={clearInvoice}>New {documentType === "invoice" ? "Invoice" : "Quote"}</Button>
         </div>
+      </div>
+
+      {/* Document Type Toggle */}
+      <div className="mb-6 flex gap-3">
+        <button
+          onClick={() => setDocumentType("invoice")}
+          className={`px-5 py-2 rounded-md font-semibold text-sm transition-colors ${
+            documentType === "invoice"
+              ? "bg-green-600 text-white"
+              : "bg-gray-100 text-gray-500 border border-gray-200"
+          }`}
+        >
+          Invoice
+        </button>
+        <button
+          onClick={() => setDocumentType("quote")}
+          className={`px-5 py-2 rounded-md font-semibold text-sm transition-colors ${
+            documentType === "quote"
+              ? "bg-blue-600 text-white"
+              : "bg-gray-100 text-gray-500 border border-gray-200"
+          }`}
+        >
+          Quote
+        </button>
       </div>
 
       {/* Company Information - Auto-filled */}
@@ -920,10 +959,10 @@ View full invoice: ${shareableLink}
 
       {/* Invoice Details with Dropdown */}
       <div className="mb-6">
-        <h2 className="text-xl font-semibold mb-4">Invoice Details</h2>
+        <h2 className="text-xl font-semibold mb-4">{documentType === "invoice" ? "Invoice" : "Quote"} Details</h2>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <Label>Next Invoice Number</Label>
+            <Label>Next {documentType === "invoice" ? "Invoice" : "Quote"} Number</Label>
             <div className="bg-gray-100 border border-gray-200 rounded-md px-3 py-2 text-lg font-bold text-gray-800">
               #{nextInvoiceNumber}
             </div>
@@ -1346,7 +1385,7 @@ View full invoice: ${shareableLink}
       </div>
 
       <div className="mb-6">
-        <h2 className="text-xl font-semibold mb-4">Invoice Summary</h2>
+        <h2 className="text-xl font-semibold mb-4">{documentType === "invoice" ? "Invoice" : "Quote"} Summary</h2>
         <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-2">
           <p className="text-lg">Material Cost: ${calculateMaterialCost().toFixed(2)}</p>
           <p className="text-lg">
@@ -1381,8 +1420,9 @@ View full invoice: ${shareableLink}
             console.log("Generate Invoice button clicked")
             generateInvoice()
           }}
+          className={documentType === "invoice" ? "bg-green-600 hover:bg-green-700" : "bg-blue-600 hover:bg-blue-700"}
         >
-          Generate Invoice
+          Generate {documentType === "invoice" ? "Invoice" : "Quote"}
         </Button>
       </div>
 
@@ -1403,12 +1443,12 @@ View full invoice: ${shareableLink}
                 </div>
               </div>
               <div className="text-right">
-                <div className="bg-blue-600 text-white px-4 py-2 rounded-lg mb-3">
-                  <h2 className="text-2xl font-bold">INVOICE</h2>
+                <div className={`${generatedInvoice.documentType === "quote" ? "bg-blue-600" : "bg-green-600"} text-white px-3 py-1.5 rounded-md mb-3 inline-block`}>
+                  <h2 className="text-lg font-bold">{generatedInvoice.documentType === "quote" ? "QUOTE" : "INVOICE"}</h2>
                 </div>
                 <div className="text-sm text-gray-600 space-y-1">
                   <p>
-                    <span className="font-medium">Invoice #:</span> {generatedInvoice.invoiceNumber}
+                    <span className="font-medium">{generatedInvoice.documentType === "quote" ? "Quote" : "Invoice"} #:</span> {generatedInvoice.invoiceNumber}
                   </p>
                   <p>
                     <span className="font-medium">Date:</span> {new Date(generatedInvoice.date).toLocaleDateString()}
@@ -1451,7 +1491,7 @@ View full invoice: ${shareableLink}
 
           {/* Line Items Table */}
           <div className="p-6">
-            <h3 className="text-xl font-semibold text-gray-800 mb-4">Itemized Invoice</h3>
+            <h3 className="text-xl font-semibold text-gray-800 mb-4">Itemized {generatedInvoice.documentType === "quote" ? "Quote" : "Invoice"}</h3>
             <div className="overflow-x-auto">
               <table className="w-full border-collapse border border-gray-300">
                 <thead>
@@ -1506,21 +1546,32 @@ View full invoice: ${shareableLink}
           <div className="bg-gray-50 p-6 border-t border-gray-200">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <h4 className="font-semibold text-gray-800 mb-2">Payment Terms:</h4>
+                <h4 className="font-semibold text-gray-800 mb-2">{generatedInvoice.documentType === "quote" ? "Terms & Conditions:" : "Payment Terms:"}</h4>
                 <ul className="text-sm text-gray-600 space-y-1">
-                  <li>• Payment due within 30 days of invoice date</li>
-                  <li>• Late payments subject to 1.5% monthly service charge</li>
-                  <li>• Please include invoice number with payment</li>
-                  <li>• Thank you for your business!</li>
+                  {generatedInvoice.documentType === "quote" ? (
+                    <>
+                      <li>This quote is valid for 30 days from the date above</li>
+                      <li>Prices are subject to change after expiration</li>
+                      <li>Please reference quote #{generatedInvoice.invoiceNumber} when placing order</li>
+                      <li>Thank you for your interest!</li>
+                    </>
+                  ) : (
+                    <>
+                      <li>Payment due within 30 days of invoice date</li>
+                      <li>Late payments subject to 1.5% monthly service charge</li>
+                      <li>Please include invoice number with payment</li>
+                      <li>Thank you for your business!</li>
+                    </>
+                  )}
                 </ul>
               </div>
               <div className="flex flex-col justify-center">
                 <div className="flex justify-end space-x-4">
-                  <Button onClick={handleShare} className="flex items-center bg-blue-600 hover:bg-blue-700">
+                  <Button onClick={handleShare} className={`flex items-center ${generatedInvoice.documentType === "quote" ? "bg-blue-600 hover:bg-blue-700" : "bg-green-600 hover:bg-green-700"}`}>
                     <Share2 className="mr-2 h-4 w-4" />
-                    Share Invoice
+                    Share {generatedInvoice.documentType === "quote" ? "Quote" : "Invoice"}
                   </Button>
-                  <Button onClick={generatePDF} className="flex items-center bg-green-600 hover:bg-green-700">
+                  <Button onClick={generatePDF} className="flex items-center bg-gray-800 hover:bg-gray-900">
                     <Download className="mr-2 h-4 w-4" />
                     Download PDF
                   </Button>
