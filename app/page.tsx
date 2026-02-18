@@ -19,6 +19,8 @@ interface LineItem {
   quantityType: "dropdown" | "manual"
   lengthUnit: "inches" | "feet"
   widthUnit: "inches" | "feet"
+  sqft: string
+  inputMethod: "dimensions" | "sqft"
 }
 
 interface SheetSize {
@@ -28,20 +30,15 @@ interface SheetSize {
   custom?: boolean
 }
 
-interface SavedCompany {
-  name: string
-  phone: string
-  address: string
-}
-
 const materialTypes = ["Mild Steel", "Stainless Steel", "Aluminum", "Galvanized"]
 
 export default function InvoicePage() {
-  const [companyInfo, setCompanyInfo] = useState({
-    name: "",
-    phone: "",
-    address: "",
-  })
+  const MY_COMPANY = {
+    name: "MHB FARMS / METALSHOP",
+    phone: "(509) 770-1696",
+    address: "21344 RD 18 NE Marlin WA 98832",
+  }
+  const [companyInfo] = useState(MY_COMPANY)
   const [customerName, setCustomerName] = useState("")
   const [projectName, setProjectName] = useState("")
   const [sheetCost, setSheetCost] = useState("")
@@ -55,6 +52,8 @@ export default function InvoicePage() {
       quantityType: "dropdown",
       lengthUnit: "inches",
       widthUnit: "inches",
+      sqft: "",
+      inputMethod: "dimensions",
     },
   ])
   const [generatedInvoice, setGeneratedInvoice] = useState<any>(null)
@@ -70,9 +69,14 @@ export default function InvoicePage() {
   const [customerEmail, setCustomerEmail] = useState("")
   const [plasmaCuttingMinutes, setPlasmaCuttingMinutes] = useState("")
   const [plasmaCostPerMinute, setPlasmaCostPerMinute] = useState("")
+  const [plasmaTimeUnit, setPlasmaTimeUnit] = useState<"minutes" | "hours">("minutes")
+  const [laborTimeUnit, setLaborTimeUnit] = useState<"hours" | "minutes">("hours")
+  const [nextInvoiceNumber, setNextInvoiceNumber] = useState("1")
+  const [documentType, setDocumentType] = useState<"invoice" | "quote">("invoice")
+
+  const [savedDrafts, setSavedDrafts] = useState<any[]>([])
 
   // Saved data states
-  const [savedCompanies, setSavedCompanies] = useState<SavedCompany[]>([])
   const [savedCustomerNames, setSavedCustomerNames] = useState<string[]>([])
   const [savedProjectNames, setSavedProjectNames] = useState<string[]>([])
   const [savedCustomerEmails, setSavedCustomerEmails] = useState<string[]>([])
@@ -81,17 +85,21 @@ export default function InvoicePage() {
   // Load saved data on component mount
   useEffect(() => {
     const loadSavedData = () => {
-      const companies = localStorage.getItem("savedCompanies")
       const customerNames = localStorage.getItem("savedCustomerNames")
       const projectNames = localStorage.getItem("savedProjectNames")
       const customerEmails = localStorage.getItem("savedCustomerEmails")
       const poNumbers = localStorage.getItem("savedPoNumbers")
 
-      if (companies) setSavedCompanies(JSON.parse(companies))
       if (customerNames) setSavedCustomerNames(JSON.parse(customerNames))
       if (projectNames) setSavedProjectNames(JSON.parse(projectNames))
       if (customerEmails) setSavedCustomerEmails(JSON.parse(customerEmails))
       if (poNumbers) setSavedPoNumbers(JSON.parse(poNumbers))
+
+      const drafts = localStorage.getItem("savedDrafts")
+      if (drafts) setSavedDrafts(JSON.parse(drafts))
+
+      const storedCounter = localStorage.getItem("invoiceCounter")
+      setNextInvoiceNumber(storedCounter ? (Number.parseInt(storedCounter) + 1).toString() : "1")
     }
 
     loadSavedData()
@@ -109,23 +117,16 @@ export default function InvoicePage() {
     return [item, ...filtered].slice(0, 10) // Keep only 10 most recent
   }
 
-  // Add unique company
-  const addUniqueCompany = (companies: SavedCompany[], company: SavedCompany): SavedCompany[] => {
-    if (!company.name.trim()) return companies
-    const filtered = companies.filter((existing) => existing.name !== company.name)
-    return [company, ...filtered].slice(0, 10) // Keep only 10 most recent
-  }
-
   // Generate sequential invoice number
   const generateInvoiceNumber = () => {
     const storedCounter = localStorage.getItem("invoiceCounter")
     const currentCounter = storedCounter ? Number.parseInt(storedCounter) + 1 : 1
     localStorage.setItem("invoiceCounter", currentCounter.toString())
+    setNextInvoiceNumber((currentCounter + 1).toString())
     return currentCounter.toString()
   }
 
   const clearInvoice = () => {
-    setCompanyInfo({ name: "", phone: "", address: "" })
     setCustomerName("")
     setProjectName("")
     setSheetCost("")
@@ -139,6 +140,8 @@ export default function InvoicePage() {
         quantityType: "dropdown",
         lengthUnit: "inches",
         widthUnit: "inches",
+        sqft: "",
+        inputMethod: "dimensions",
       },
     ])
     setSheetSize({ length: 5, width: 10, unit: "feet" })
@@ -153,6 +156,172 @@ export default function InvoicePage() {
     setCustomerEmail("")
     setPlasmaCuttingMinutes("")
     setPlasmaCostPerMinute("")
+    setPlasmaTimeUnit("minutes")
+    setLaborTimeUnit("hours")
+  }
+
+  const saveDraft = () => {
+    const draft = {
+      id: Date.now(),
+      companyInfo: MY_COMPANY,
+      customerName,
+      projectName,
+      sheetCost,
+      markupPercentage,
+      lineItems,
+      sheetSize,
+      materialType,
+      formingCost,
+      formingCostMethod,
+      poNumber,
+      customSheetSize,
+      hourlyRate,
+      hoursWorked,
+      customerEmail,
+      plasmaCuttingMinutes,
+      plasmaCostPerMinute,
+      plasmaTimeUnit,
+      laborTimeUnit,
+      documentType,
+      savedAt: new Date().toISOString(),
+      label: `${customerName || "Untitled"} - ${projectName || "No Project"}`,
+    }
+
+    const updatedDrafts = [draft, ...savedDrafts.filter((d) => d.id !== draft.id)].slice(0, 20)
+    setSavedDrafts(updatedDrafts)
+    localStorage.setItem("savedDrafts", JSON.stringify(updatedDrafts))
+    toast.success("Draft saved successfully!")
+  }
+
+  const loadDraft = (draft: any) => {
+    setCustomerName(draft.customerName || "")
+    setProjectName(draft.projectName || "")
+    setSheetCost(draft.sheetCost || "")
+    setMarkupPercentage(draft.markupPercentage || "30")
+    setLineItems(draft.lineItems || [{ description: "", length: "", width: "", quantity: "1", quantityType: "dropdown", lengthUnit: "inches", widthUnit: "inches", sqft: "", inputMethod: "dimensions" }])
+    setSheetSize(draft.sheetSize || { length: 5, width: 10, unit: "feet" })
+    setMaterialType(draft.materialType || materialTypes[0])
+    setFormingCost(draft.formingCost || "")
+    setFormingCostMethod(draft.formingCostMethod || "perItem")
+    setPoNumber(draft.poNumber || "")
+    setCustomSheetSize(draft.customSheetSize || { length: 0, width: 0, unit: "feet" })
+    setHourlyRate(draft.hourlyRate || "")
+    setHoursWorked(draft.hoursWorked || "")
+    setCustomerEmail(draft.customerEmail || "")
+    setPlasmaCuttingMinutes(draft.plasmaCuttingMinutes || "")
+    setPlasmaCostPerMinute(draft.plasmaCostPerMinute || "")
+    setPlasmaTimeUnit(draft.plasmaTimeUnit || "minutes")
+    setLaborTimeUnit(draft.laborTimeUnit || "hours")
+    setDocumentType(draft.documentType || "invoice")
+    setGeneratedInvoice(null)
+    toast.success("Draft loaded! You can now edit and generate the invoice.")
+  }
+
+  const deleteDraft = (draftId: number) => {
+    const updatedDrafts = savedDrafts.filter((d) => d.id !== draftId)
+    setSavedDrafts(updatedDrafts)
+    localStorage.setItem("savedDrafts", JSON.stringify(updatedDrafts))
+    toast.success("Draft deleted.")
+  }
+
+  const loadInvoiceForEdit = (invoice: any) => {
+    setCustomerName(invoice.customerName || "")
+    setProjectName(invoice.projectName || "")
+    setSheetCost(invoice.sheetCost || "")
+    setMarkupPercentage(invoice.markupPercentage || "30")
+    setLineItems(
+      invoice.lineItems?.map((item: any) => ({
+        description: item.description || "",
+        length: item.length || "",
+        width: item.width || "",
+        quantity: item.quantity || "1",
+        quantityType: item.quantityType || "dropdown",
+        lengthUnit: item.lengthUnit || "inches",
+        widthUnit: item.widthUnit || "inches",
+        sqft: item.sqft || "",
+        inputMethod: item.inputMethod || "dimensions",
+      })) || [{ description: "", length: "", width: "", quantity: "1", quantityType: "dropdown", lengthUnit: "inches", widthUnit: "inches", sqft: "", inputMethod: "dimensions" }]
+    )
+    setSheetSize(invoice.sheetSize || { length: 5, width: 10, unit: "feet" })
+    setMaterialType(invoice.materialType || materialTypes[0])
+    setFormingCost(invoice.formingCost || "")
+    setFormingCostMethod(invoice.formingCostMethod || "perItem")
+    setPoNumber(invoice.poNumber || "")
+    setCustomSheetSize(invoice.customSheetSize || { length: 0, width: 0, unit: "feet" })
+    setHourlyRate(invoice.hourlyRate || "")
+    setHoursWorked(invoice.hoursWorked || "")
+    setCustomerEmail(invoice.customerEmail || "")
+    setPlasmaCuttingMinutes(invoice.plasmaCuttingMinutes || "")
+    setPlasmaCostPerMinute(invoice.plasmaCostPerMinute || "")
+    setPlasmaTimeUnit(invoice.plasmaTimeUnit || "minutes")
+    setLaborTimeUnit(invoice.laborTimeUnit || "hours")
+    setDocumentType(invoice.documentType || "invoice")
+    setGeneratedInvoice(null)
+    window.scrollTo({ top: 0, behavior: "smooth" })
+    toast.success("Invoice loaded for editing! Make your changes and generate a new invoice.")
+  }
+
+  const deleteInvoice = (invoiceId: number) => {
+    const updatedInvoices = recentInvoices.filter((inv) => inv.id !== invoiceId)
+    setRecentInvoices(updatedInvoices)
+    localStorage.setItem("recentInvoices", JSON.stringify(updatedInvoices))
+    toast.success("Invoice deleted.")
+  }
+
+  const fillDemoData = () => {
+    setCustomerName("John Smith")
+    setProjectName("Barn Steel Panels")
+    setCustomerEmail("johnsmith@email.com")
+    setPoNumber("PO-2026-001")
+    setSheetCost("125.00")
+    setMarkupPercentage("30")
+    setMaterialType("Mild Steel")
+    setSheetSize({ length: 5, width: 10, unit: "feet" })
+    setFormingCost("15")
+    setFormingCostMethod("perItem")
+    setHourlyRate("75")
+    setHoursWorked("2.5")
+    setLaborTimeUnit("hours")
+    setPlasmaCuttingMinutes("45")
+    setPlasmaCostPerMinute("1.25")
+    setPlasmaTimeUnit("minutes")
+    setLineItems([
+      {
+        description: "Side Panel - Left",
+        length: "48",
+        width: "24",
+        quantity: "4",
+        quantityType: "dropdown",
+        lengthUnit: "inches",
+        widthUnit: "inches",
+        sqft: "",
+        inputMethod: "dimensions",
+      },
+      {
+        description: "Top Cover Plate",
+        length: "36",
+        width: "18",
+        quantity: "2",
+        quantityType: "dropdown",
+        lengthUnit: "inches",
+        widthUnit: "inches",
+        sqft: "",
+        inputMethod: "dimensions",
+      },
+      {
+        description: "Floor Base",
+        length: "",
+        width: "",
+        quantity: "1",
+        quantityType: "dropdown",
+        lengthUnit: "inches",
+        widthUnit: "inches",
+        sqft: "12",
+        inputMethod: "sqft",
+      },
+    ])
+    setGeneratedInvoice(null)
+    toast.success("Demo data loaded! Hit Generate to preview.")
   }
 
   useEffect(() => {
@@ -165,20 +334,6 @@ export default function InvoicePage() {
     }
   }, [generatedInvoice])
 
-  const updateCompanyInfo = (field: string, value: string) => {
-    setCompanyInfo((prev) => ({ ...prev, [field]: value }))
-  }
-
-  // Handle company selection from dropdown
-  const handleCompanySelect = (companyName: string) => {
-    const selectedCompany = savedCompanies.find((company) => company.name === companyName)
-    if (selectedCompany) {
-      setCompanyInfo(selectedCompany)
-    } else {
-      setCompanyInfo((prev) => ({ ...prev, name: companyName }))
-    }
-  }
-
   const addLineItem = () => {
     setLineItems([
       ...lineItems,
@@ -190,6 +345,8 @@ export default function InvoicePage() {
         quantityType: "dropdown",
         lengthUnit: "inches",
         widthUnit: "inches",
+        sqft: "",
+        inputMethod: "dimensions",
       },
     ])
   }
@@ -209,23 +366,36 @@ export default function InvoicePage() {
   }
 
   const calculatePartCost = (item: LineItem) => {
+    const sheetCostValue = Number.parseFloat(sheetCost) || 0
+
+    if (item.inputMethod === "sqft") {
+      // Calculate cost based on square footage
+      const sheetAreaSqft = sheetSize.unit === "feet"
+        ? sheetSize.length * sheetSize.width
+        : (sheetSize.length * sheetSize.width) / 144
+      const costPerSqft = sheetAreaSqft > 0 ? sheetCostValue / sheetAreaSqft : 0
+      const itemSqft = Number.parseFloat(item.sqft) || 0
+      return costPerSqft * itemSqft * (Number.parseFloat(item.quantity) || 0)
+    }
+
+    // Calculate cost based on dimensions
     const sheetArea =
       sheetSize.unit === "feet"
         ? sheetSize.length * sheetSize.width * 144 // sheet size in square inches
         : sheetSize.length * sheetSize.width // sheet size already in square inches
-    const sheetCostValue = Number.parseFloat(sheetCost) || 0
     const partLength = item.lengthUnit === "feet" ? Number.parseFloat(item.length) * 12 : Number.parseFloat(item.length)
     const partWidth = item.widthUnit === "feet" ? Number.parseFloat(item.width) * 12 : Number.parseFloat(item.width)
     const partArea = partLength * partWidth
     const partsPerSheet = Math.floor(sheetArea / partArea) || 1 // Prevent division by zero
     const costPerPart = sheetCostValue / partsPerSheet
-    return costPerPart * Number.parseFloat(item.quantity)
+    return costPerPart * (Number.parseFloat(item.quantity) || 0)
   }
 
   const calculatePlasmaCuttingCost = () => {
-    const minutes = Number.parseFloat(plasmaCuttingMinutes) || 0
-    const costPerMinute = Number.parseFloat(plasmaCostPerMinute) || 0
-    return minutes * costPerMinute
+    const timeValue = Number.parseFloat(plasmaCuttingMinutes) || 0
+    const costPerUnit = Number.parseFloat(plasmaCostPerMinute) || 0
+    const minutes = plasmaTimeUnit === "hours" ? timeValue * 60 : timeValue
+    return minutes * costPerUnit
   }
 
   const calculateTotal = () => {
@@ -245,10 +415,25 @@ export default function InvoicePage() {
     return (subtotal + markup + totalFormingCost + laborCost + plasmaCost).toFixed(2)
   }
 
+  const calculateMaterialCost = () => {
+    return lineItems.reduce((total, item) => {
+      const itemCost = calculatePartCost(item)
+      return isNaN(itemCost) ? total : total + itemCost
+    }, 0)
+  }
+
+  const calculateNetProfit = () => {
+    const totalValue = Number.parseFloat(calculateTotal()) || 0
+    const materialCost = calculateMaterialCost()
+    return (totalValue - materialCost).toFixed(2)
+  }
+
   const calculateLaborCost = () => {
     const rate = Number.parseFloat(hourlyRate)
-    const hours = Number.parseFloat(hoursWorked)
-    return !isNaN(rate) && !isNaN(hours) ? rate * hours : 0
+    const timeValue = Number.parseFloat(hoursWorked)
+    if (isNaN(rate) || isNaN(timeValue)) return 0
+    const hours = laborTimeUnit === "minutes" ? timeValue / 60 : timeValue
+    return rate * hours
   }
 
   const generateInvoice = () => {
@@ -257,12 +442,6 @@ export default function InvoicePage() {
       console.time("Invoice Generation Time")
 
       // Save current entries to localStorage
-      if (companyInfo.name.trim()) {
-        const updatedCompanies = addUniqueCompany(savedCompanies, companyInfo)
-        setSavedCompanies(updatedCompanies)
-        saveToLocalStorage("savedCompanies", updatedCompanies)
-      }
-
       if (customerName.trim()) {
         const updatedCustomerNames = addUniqueItem(savedCustomerNames, customerName)
         setSavedCustomerNames(updatedCustomerNames)
@@ -300,6 +479,7 @@ export default function InvoicePage() {
 
       const invoiceData = {
         id: Date.now(),
+        documentType,
         invoiceNumber,
         companyInfo,
         customerName,
@@ -308,6 +488,8 @@ export default function InvoicePage() {
         materialType,
         lineItems: lineItems.map((item) => ({
           ...item,
+          sqft: item.sqft || "",
+          inputMethod: item.inputMethod || "dimensions",
           cost: calculatePartCost(item).toFixed(2),
         })),
         formingCost,
@@ -323,6 +505,16 @@ export default function InvoicePage() {
         poNumber: poNumber || undefined,
         date: new Date().toISOString(),
         customerEmail,
+        // Save full form data for editing later
+        sheetCost,
+        markupPercentage,
+        customSheetSize,
+        hourlyRate,
+        hoursWorked,
+        plasmaCuttingMinutes,
+        plasmaCostPerMinute,
+        plasmaTimeUnit,
+        laborTimeUnit,
       }
 
       // Enhanced console logging
@@ -463,301 +655,293 @@ View full invoice: ${shareableLink}
 
   const generatePDF = () => {
     if (generatedInvoice) {
-      const doc = new jsPDF()
+      // US Letter: 215.9 x 279.4 mm
+      const doc = new jsPDF({ format: "letter", unit: "mm" })
+      const pageWidth = 215.9
+      const pageHeight = 279.4
+      const margin = 16
+      const contentWidth = pageWidth - margin * 2
+      const isQuote = generatedInvoice.documentType === "quote"
+      const docLabel = isQuote ? "QUOTE" : "INVOICE"
 
-      // Set up colors and fonts
-      const primaryColor = [0, 112, 243] // Blue
-      const darkGray = [64, 64, 64]
-      const lightGray = [128, 128, 128]
+      // ===== HEADER =====
+      doc.setFillColor(249, 250, 251)
+      doc.rect(0, 0, pageWidth, 50, "F")
+      doc.setDrawColor(229, 231, 235)
+      doc.setLineWidth(0.5)
+      doc.line(0, 50, pageWidth, 50)
 
-      // Header Section
-      doc.setFillColor(...primaryColor)
-      doc.rect(0, 0, 210, 40, "F")
+      doc.setTextColor(31, 41, 55)
+      doc.setFontSize(22)
+      doc.setFont("helvetica", "bold")
+      doc.text(generatedInvoice.companyInfo.name, margin, 20)
 
-      // Company Name
+      doc.setTextColor(75, 85, 99)
+      doc.setFontSize(10)
+      doc.setFont("helvetica", "normal")
+      doc.text(generatedInvoice.companyInfo.address, margin, 29)
+      doc.text(generatedInvoice.companyInfo.phone, margin, 36)
+
+      // Badge
+      if (isQuote) { doc.setFillColor(37, 99, 235) } else { doc.setFillColor(22, 163, 74) }
+      doc.roundedRect(163, 10, 40, 12, 2, 2, "F")
       doc.setTextColor(255, 255, 255)
-      doc.setFontSize(24)
-      doc.setFont("helvetica", "bold")
-      doc.text(generatedInvoice.companyInfo.name, 20, 25)
-
-      // Invoice Title
-      doc.setFontSize(16)
-      doc.text("INVOICE", 170, 25)
-
-      // Company Details
-      doc.setTextColor(...darkGray)
-      doc.setFontSize(10)
-      doc.setFont("helvetica", "normal")
-      doc.text(generatedInvoice.companyInfo.address, 20, 50)
-      doc.text(generatedInvoice.companyInfo.phone, 20, 58)
-
-      // Invoice Details (Right side)
-      doc.setFont("helvetica", "bold")
-      doc.text("Invoice #:", 140, 50)
-      doc.text("Date:", 140, 58)
-      doc.text("Due Date:", 140, 66)
-
-      doc.setFont("helvetica", "normal")
-      doc.text(generatedInvoice.invoiceNumber, 165, 50)
-      doc.text(new Date(generatedInvoice.date).toLocaleDateString(), 165, 58)
-      doc.text(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString(), 165, 66)
-
-      // Customer Information
-      doc.setFont("helvetica", "bold")
       doc.setFontSize(12)
-      doc.text("Bill To:", 20, 85)
+      doc.setFont("helvetica", "bold")
+      doc.text(docLabel, isQuote ? 170 : 169, 19)
 
+      // Detail box
+      const bx = 148, by = 26, bw = 55, bh = 22
+      if (isQuote) { doc.setDrawColor(147, 197, 253) } else { doc.setDrawColor(134, 239, 172) }
+      doc.setLineWidth(0.7)
+      doc.roundedRect(bx, by, bw, bh, 2, 2, "S")
+
+      doc.setTextColor(55, 65, 81)
+      doc.setFontSize(8)
+      doc.setFont("helvetica", "bold")
+      doc.text(`${isQuote ? "Quote" : "Invoice"} #:`, bx + 3, by + 6)
       doc.setFont("helvetica", "normal")
-      doc.setFontSize(10)
-      let customerYPos = 95
-      doc.text(generatedInvoice.customerName, 20, customerYPos)
-      customerYPos += 8
+      doc.text(generatedInvoice.invoiceNumber, bx + bw - 3, by + 6, { align: "right" })
 
-      // Only show project if it exists
+      if (isQuote) { doc.setDrawColor(191, 219, 254) } else { doc.setDrawColor(187, 247, 208) }
+      doc.setLineWidth(0.3)
+      doc.line(bx + 2, by + 8, bx + bw - 2, by + 8)
+
+      doc.setFont("helvetica", "bold")
+      doc.text("Date:", bx + 3, by + 13)
+      doc.setFont("helvetica", "normal")
+      doc.text(new Date(generatedInvoice.date).toLocaleDateString(), bx + bw - 3, by + 13, { align: "right" })
+
+      doc.line(bx + 2, by + 15, bx + bw - 2, by + 15)
+
+      const dueDateLabel = isQuote ? "Valid Until:" : "Due Date:"
+      const dueDate = isQuote
+        ? new Date(new Date(generatedInvoice.date).getTime() + 24 * 60 * 60 * 1000).toLocaleDateString()
+        : new Date(new Date(generatedInvoice.date).getTime() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()
+      doc.setFont("helvetica", "bold")
+      doc.text(dueDateLabel, bx + 3, by + 20)
+      doc.setFont("helvetica", "normal")
+      doc.text(dueDate, bx + bw - 3, by + 20, { align: "right" })
+
+      // ===== BILL TO =====
+      let yPos = 60
+      doc.setTextColor(31, 41, 55)
+      doc.setFontSize(12)
+      doc.setFont("helvetica", "bold")
+      doc.text("Bill To:", margin, yPos)
+      doc.setDrawColor(209, 213, 219)
+      doc.setLineWidth(0.3)
+      doc.line(margin, yPos + 2, margin + 25, yPos + 2)
+      yPos += 8
+
+      doc.setTextColor(55, 65, 81)
+      doc.setFontSize(11)
+      doc.setFont("helvetica", "bold")
+      doc.text(generatedInvoice.customerName, margin, yPos)
+      yPos += 6
+
+      doc.setFontSize(9)
+      doc.setFont("helvetica", "normal")
+
       if (generatedInvoice.projectName && generatedInvoice.projectName.trim()) {
-        doc.text(`Project: ${generatedInvoice.projectName}`, 20, customerYPos)
-        customerYPos += 8
+        doc.setFont("helvetica", "bold")
+        doc.text("Project: ", margin, yPos)
+        doc.setFont("helvetica", "normal")
+        doc.text(generatedInvoice.projectName, margin + 18, yPos)
+        yPos += 5.5
       }
-
       if (generatedInvoice.customerEmail) {
-        doc.text(`Email: ${generatedInvoice.customerEmail}`, 20, customerYPos)
-        customerYPos += 8
+        doc.setFont("helvetica", "bold")
+        doc.text("Email: ", margin, yPos)
+        doc.setFont("helvetica", "normal")
+        doc.text(generatedInvoice.customerEmail, margin + 14, yPos)
+        yPos += 5.5
       }
       if (generatedInvoice.poNumber) {
-        doc.text(`PO Number: ${generatedInvoice.poNumber}`, 20, customerYPos)
-        customerYPos += 8
+        doc.setFont("helvetica", "bold")
+        doc.text("PO #: ", margin, yPos)
+        doc.setFont("helvetica", "normal")
+        doc.text(generatedInvoice.poNumber, margin + 14, yPos)
+        yPos += 5.5
       }
 
-      // Line Items Table (start after customer info)
-      let yPos = Math.max(customerYPos + 20, 140)
+      yPos += 4
+      doc.setDrawColor(229, 231, 235)
+      doc.setLineWidth(0.4)
+      doc.line(margin, yPos, pageWidth - margin, yPos)
+      yPos += 8
 
-      // Table Header
-      doc.setFillColor(240, 240, 240)
-      doc.rect(20, yPos - 8, 170, 12, "F")
-
+      // ===== TABLE =====
+      doc.setTextColor(31, 41, 55)
+      doc.setFontSize(13)
       doc.setFont("helvetica", "bold")
+      doc.text(`Itemized ${isQuote ? "Quote" : "Invoice"}`, margin, yPos)
+      yPos += 7
+
+      const colX = { num: margin, desc: margin + 14, dim: 122, qty: 180 }
+      const rowH = 10
+
+      doc.setFillColor(243, 244, 246)
+      doc.rect(margin, yPos - 5, contentWidth, rowH, "F")
+      doc.setDrawColor(209, 213, 219)
+      doc.setLineWidth(0.3)
+      doc.rect(margin, yPos - 5, contentWidth, rowH, "S")
+
       doc.setFontSize(9)
-      doc.text("#", 25, yPos)
-      doc.text("Description", 35, yPos)
-      doc.text("Dimensions", 90, yPos)
-      doc.text("Qty", 130, yPos)
-      doc.text("Unit Price", 145, yPos)
-      doc.text("Total", 175, yPos)
+      doc.setFont("helvetica", "bold")
+      doc.setTextColor(55, 65, 81)
+      doc.text("#", colX.num + 3, yPos + 1)
+      doc.text("Description", colX.desc + 3, yPos + 1)
+      doc.text("Dimensions / Sq Ft", colX.dim, yPos + 1)
+      doc.text("Qty", colX.qty + 3, yPos + 1)
 
-      // Table Lines
-      doc.setDrawColor(...lightGray)
-      doc.line(20, yPos + 2, 190, yPos + 2)
+      yPos += rowH + 1
 
-      yPos += 15
-
-      // Line Items
       doc.setFont("helvetica", "normal")
-      doc.setFontSize(8)
+      doc.setFontSize(9)
+      doc.setTextColor(31, 41, 55)
 
-      let subtotal = 0
       generatedInvoice.lineItems.forEach((item: any, index: number) => {
-        const unitPrice = (Number.parseFloat(item.cost) / Number.parseFloat(item.quantity)).toFixed(2)
-        subtotal += Number.parseFloat(item.cost)
+        doc.setDrawColor(209, 213, 219)
+        doc.rect(margin, yPos - 5, contentWidth, rowH, "S")
 
-        doc.text((index + 1).toString(), 25, yPos)
-        doc.text(item.description || "Custom Part", 35, yPos)
-        doc.text(`${item.length} ${item.lengthUnit} × ${item.width} ${item.widthUnit}`, 90, yPos)
-        doc.text(item.quantity, 130, yPos)
-        doc.text(`$${unitPrice}`, 145, yPos)
-        doc.text(`$${item.cost}`, 175, yPos)
-
-        yPos += 10
-
-        // Add new page if needed
-        if (yPos > 250) {
-          doc.addPage()
-          yPos = 30
-        }
+        doc.text((index + 1).toString(), colX.num + 4, yPos + 1)
+        doc.text(item.description || "Custom Part", colX.desc + 3, yPos + 1)
+        const dimText = item.inputMethod === "sqft"
+          ? `${item.sqft} sq ft`
+          : `${item.length} ${item.lengthUnit} x ${item.width} ${item.widthUnit}`
+        doc.text(dimText, colX.dim, yPos + 1)
+        doc.text(item.quantity, colX.qty + 5, yPos + 1)
+        yPos += rowH
       })
 
-      // Table bottom line
-      doc.line(20, yPos, 190, yPos)
-      yPos += 20
+      yPos += 12
 
-      // Cost Breakdown - Large centered section with dark styling
-      yPos += 10
+      // ===== TOTAL =====
+      const tbW = contentWidth * 0.45
+      const tbX = pageWidth - margin - tbW
+      const tbH = 20
 
-      // Calculate the width and position for a large centered box
-      const boxWidth = 120
-      const boxX = (210 - boxWidth) / 2 // Center horizontally
-      const boxHeight = 90 // Larger height
+      doc.setFillColor(17, 24, 39)
+      doc.roundedRect(tbX, yPos, tbW, tbH, 3, 3, "F")
 
-      // Draw main border with dark styling
-      doc.setFillColor(45, 55, 72) // Dark blue-gray background
-      doc.rect(boxX, yPos, boxWidth, boxHeight, "F")
-
-      // Draw border outline
-      doc.setDrawColor(30, 41, 59) // Even darker border
-      doc.setLineWidth(2)
-      doc.rect(boxX, yPos, boxWidth, boxHeight, "S")
-
-      // Title
-      doc.setTextColor(255, 255, 255) // White text
-      doc.setFont("helvetica", "bold")
-      doc.setFontSize(14)
-      doc.text("COST BREAKDOWN", boxX + boxWidth / 2, yPos + 15, { align: "center" })
-
-      // Draw line under title
-      doc.setDrawColor(255, 255, 255)
-      doc.setLineWidth(1)
-      doc.line(boxX + 10, yPos + 18, boxX + boxWidth - 10, yPos + 18)
-
-      doc.setFont("helvetica", "normal")
-      doc.setFontSize(10)
-      let itemYPos = yPos + 28
-
-      // Subtotal
-      const subtotalWithMarkup = lineItems.reduce((total, item) => {
-        const itemCost = calculatePartCost(item)
-        return isNaN(itemCost) ? total : total + itemCost
-      }, 0)
-      doc.text("Subtotal (Materials):", boxX + 10, itemYPos)
-      doc.text(`$${subtotalWithMarkup.toFixed(2)}`, boxX + boxWidth - 10, itemYPos, { align: "right" })
-      itemYPos += 8
-
-      // Labor Cost (including markup)
-      if (generatedInvoice.laborCost) {
-        const markupAmount = subtotalWithMarkup * (Number.parseFloat(markupPercentage) / 100 || 0)
-        const laborAmount = Number.parseFloat(generatedInvoice.laborCost || "0")
-        const totalLaborWithMarkup = laborAmount + markupAmount
-
-        doc.text("Labor:", boxX + 10, itemYPos)
-        doc.text(`$${totalLaborWithMarkup.toFixed(2)}`, boxX + boxWidth - 10, itemYPos, { align: "right" })
-        itemYPos += 8
-      }
-
-      // Total section with special styling
-      doc.setDrawColor(255, 255, 255)
-      doc.setLineWidth(2)
-      doc.line(boxX + 10, itemYPos + 5, boxX + boxWidth - 10, itemYPos + 5)
-
+      doc.setTextColor(255, 255, 255)
       doc.setFont("helvetica", "bold")
       doc.setFontSize(16)
-      doc.text("TOTAL:", boxX + 10, itemYPos + 18)
-      doc.text(`$${generatedInvoice.total}`, boxX + boxWidth - 10, itemYPos + 18, { align: "right" })
+      doc.text("TOTAL:", tbX + 10, yPos + 14)
+      doc.text(`$${generatedInvoice.total}`, tbX + tbW - 10, yPos + 14, { align: "right" })
 
-      // Update yPos to continue after the box
-      yPos = yPos + boxHeight + 20
+      yPos += tbH + 14
 
-      // Payment Terms with border
-      yPos += 25
+      // ===== TERMS =====
+      const termsH = 38
+      doc.setFillColor(249, 250, 251)
+      doc.rect(margin, yPos - 4, contentWidth, termsH, "F")
+      doc.setDrawColor(229, 231, 235)
+      doc.rect(margin, yPos - 4, contentWidth, termsH, "S")
+
+      doc.setTextColor(31, 41, 55)
+      doc.setFontSize(10)
       doc.setFont("helvetica", "bold")
-      doc.setFontSize(12)
-      doc.text("Payment Terms:", 20, yPos)
-
-      // Draw border around payment terms
-      doc.setDrawColor(...lightGray)
-      doc.rect(20, yPos + 5, 170, 35, "S")
+      doc.text(isQuote ? "Terms & Conditions:" : "Payment Terms:", margin + 5, yPos + 4)
 
       doc.setFont("helvetica", "normal")
-      doc.setFontSize(9)
-      yPos += 15
-      const terms = [
-        "• Net 30 days from invoice date",
-        "• 2% discount if paid within 10 days",
-        "• 1.5% monthly service charge on overdue accounts",
-        "• All work performed and materials furnished according to specifications",
-        "• Thank you for your business!",
-      ]
-
-      terms.forEach((term) => {
-        doc.text(term, 25, yPos)
-        yPos += 6
+      doc.setFontSize(8)
+      doc.setTextColor(75, 85, 99)
+      const terms = isQuote
+        ? [
+            "This quote is valid for 24 hours from the date above",
+            "Prices are subject to change after expiration",
+            `Please reference quote #${generatedInvoice.invoiceNumber} when placing order`,
+            "Thank you for your interest!",
+          ]
+        : [
+            "Payment due within 30 days of invoice date",
+            "Late payments subject to 1.5% monthly service charge",
+            "Please include invoice number with payment",
+            "Thank you for your business!",
+          ]
+      terms.forEach((term, i) => {
+        doc.text(`\u2022  ${term}`, margin + 8, yPos + 12 + i * 6)
       })
 
-      // Footer
-      yPos += 15
-      doc.setFillColor(...darkGray)
-      doc.rect(0, yPos, 210, 25, "F")
+      // ===== FOOTER (pinned to bottom of page) =====
+      const footerH = 22
+      const footerY = pageHeight - footerH
+      doc.setFillColor(31, 41, 55)
+      doc.rect(0, footerY, pageWidth, footerH, "F")
 
       doc.setTextColor(255, 255, 255)
       doc.setFont("helvetica", "normal")
       doc.setFontSize(9)
       doc.text(
         `Thank you for choosing ${generatedInvoice.companyInfo.name}. We appreciate your business!`,
-        20,
-        yPos + 10,
+        pageWidth / 2, footerY + 9, { align: "center" },
       )
+      doc.setTextColor(209, 213, 219)
+      doc.setFontSize(8)
       doc.text(
-        `For questions about this invoice, please contact us at ${generatedInvoice.companyInfo.phone}`,
-        20,
-        yPos + 18,
+        `For questions, please contact us at ${generatedInvoice.companyInfo.phone}`,
+        pageWidth / 2, footerY + 16, { align: "center" },
       )
 
-      // Save the PDF
-      doc.save(`Invoice_${generatedInvoice.invoiceNumber}.pdf`)
-      toast.success("Professional invoice PDF generated and downloaded!")
+      doc.save(`${isQuote ? "Quote" : "Invoice"}_${generatedInvoice.invoiceNumber}.pdf`)
+      toast.success(`${isQuote ? "Quote" : "Invoice"} PDF downloaded!`)
     }
   }
 
   return (
-    <div className="container mx-auto p-4 max-w-4xl">
-      <div className="flex justify-between items-center mb-6">
+    <div className="container mx-auto px-3 py-3 max-w-3xl text-sm">
+      <div className="flex flex-wrap justify-between items-center mb-4 gap-2">
         <div>
-          <h1 className="text-3xl font-bold">Invoice Generator</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">{documentType === "invoice" ? "Invoice" : "Quote"} Generator</h1>
           <TimestampClock />
         </div>
-        <Button onClick={clearInvoice}>New Invoice</Button>
+        <div className="flex flex-wrap gap-1.5">
+          <Button onClick={fillDemoData} variant="outline" size="sm" className="border-amber-300 text-amber-700 hover:bg-amber-50 text-xs">Demo</Button>
+          <Button onClick={saveDraft} variant="outline" size="sm" className="text-xs">Save Draft</Button>
+          <Button onClick={clearInvoice} size="sm" className="text-xs">New {documentType === "invoice" ? "Invoice" : "Quote"}</Button>
+        </div>
       </div>
 
-      {/* Company Information with Dropdowns */}
-      <div className="mb-6">
-        <h2 className="text-xl font-semibold mb-4">Company Information</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <Label htmlFor="companyName">Company Name</Label>
-            <Select value={companyInfo.name} onValueChange={handleCompanySelect}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select or type company name" />
-              </SelectTrigger>
-              <SelectContent>
-                {savedCompanies.map((company, index) => (
-                  <SelectItem key={index} value={company.name}>
-                    {company.name} ({company.phone})
-                  </SelectItem>
-                ))}
-                <SelectItem value="__custom__">Type new company...</SelectItem>
-              </SelectContent>
-            </Select>
-            {(companyInfo.name === "__custom__" || !savedCompanies.find((c) => c.name === companyInfo.name)) && (
-              <Input
-                className="mt-2"
-                value={companyInfo.name === "__custom__" ? "" : companyInfo.name}
-                onChange={(e) => updateCompanyInfo("name", e.target.value)}
-                placeholder="Enter company name"
-              />
-            )}
-          </div>
-          <div>
-            <Label htmlFor="companyPhone">Phone Number</Label>
-            <Input
-              id="companyPhone"
-              value={companyInfo.phone}
-              onChange={(e) => updateCompanyInfo("phone", e.target.value)}
-              placeholder="Enter phone number"
-            />
-          </div>
-          <div>
-            <Label htmlFor="companyAddress">Address</Label>
-            <Input
-              id="companyAddress"
-              value={companyInfo.address}
-              onChange={(e) => updateCompanyInfo("address", e.target.value)}
-              placeholder="Enter company address"
-            />
-          </div>
+      {/* Document Type Toggle */}
+      <div className="mb-4 flex gap-2">
+        <button
+          onClick={() => setDocumentType("invoice")}
+          className={`px-4 py-1.5 rounded-md font-semibold text-xs transition-colors ${
+            documentType === "invoice"
+              ? "bg-green-600 text-white"
+              : "bg-gray-100 text-gray-500 border border-gray-200"
+          }`}
+        >
+          Invoice
+        </button>
+        <button
+          onClick={() => setDocumentType("quote")}
+          className={`px-4 py-1.5 rounded-md font-semibold text-xs transition-colors ${
+            documentType === "quote"
+              ? "bg-blue-600 text-white"
+              : "bg-gray-100 text-gray-500 border border-gray-200"
+          }`}
+        >
+          Quote
+        </button>
+      </div>
+
+      {/* Company Information - Auto-filled */}
+      <div className="mb-4 bg-gray-50 border border-gray-200 rounded-lg p-3">
+        <p className="text-xs text-gray-500 mb-0.5">Your Company</p>
+        <div className="flex flex-wrap gap-3 text-gray-700 text-xs sm:text-sm">
+          <p className="font-bold">{MY_COMPANY.name}</p>
+          <p>{MY_COMPANY.phone}</p>
+          <p>{MY_COMPANY.address}</p>
         </div>
       </div>
 
       {/* Customer Information with Dropdowns */}
-      <div className="mb-6">
-        <h2 className="text-xl font-semibold mb-4">Customer Information</h2>
-        <div className="grid grid-cols-2 gap-4">
+      <div className="mb-4">
+        <h2 className="text-base font-semibold mb-2">Customer Information</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <Label htmlFor="customerName">Customer Name</Label>
             <Select value={customerName} onValueChange={setCustomerName}>
@@ -835,9 +1019,15 @@ View full invoice: ${shareableLink}
       </div>
 
       {/* Invoice Details with Dropdown */}
-      <div className="mb-6">
-        <h2 className="text-xl font-semibold mb-4">Invoice Details</h2>
-        <div className="grid grid-cols-2 gap-4">
+      <div className="mb-4">
+        <h2 className="text-base font-semibold mb-2">{documentType === "invoice" ? "Invoice" : "Quote"} Details</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <Label>Next {documentType === "invoice" ? "Invoice" : "Quote"} Number</Label>
+            <div className="bg-gray-100 border border-gray-200 rounded-md px-2 py-1.5 text-sm font-bold text-gray-800">
+              #{nextInvoiceNumber}
+            </div>
+          </div>
           <div>
             <Label htmlFor="poNumber">PO Number</Label>
             <Select value={poNumber} onValueChange={setPoNumber}>
@@ -865,9 +1055,9 @@ View full invoice: ${shareableLink}
         </div>
       </div>
 
-      <div className="mb-6">
-        <h2 className="text-xl font-semibold mb-4">Sheet Specifications</h2>
-        <div className="grid grid-cols-2 gap-4">
+      <div className="mb-4">
+        <h2 className="text-base font-semibold mb-2">Sheet Specifications</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <Label htmlFor="sheetSize">Sheet Size</Label>
             <Select
@@ -1009,116 +1199,152 @@ View full invoice: ${shareableLink}
         </div>
       </div>
 
-      <div className="mb-6">
-        <h2 className="text-xl font-semibold mb-4">Line Items</h2>
+      <div className="mb-4">
+        <h2 className="text-base font-semibold mb-2">Line Items</h2>
         {lineItems.map((item, index) => (
-          <div key={index} className="flex items-end gap-2 mb-2">
-            <div className="flex-grow">
-              <Label htmlFor={`description-${index}`}>Description</Label>
-              <Input
-                id={`description-${index}`}
-                value={item.description}
-                onChange={(e) => updateLineItem(index, "description", e.target.value)}
-                placeholder="Item description"
-              />
-            </div>
-            <div className="w-32 flex flex-col">
-              <Label htmlFor={`length-${index}`}>Length</Label>
-              <div className="flex">
+          <div key={index} className="border border-gray-200 rounded-lg p-2 mb-2">
+            <div className="flex items-end gap-2 mb-2">
+              <div className="flex-grow">
+                <Label htmlFor={`description-${index}`}>Description</Label>
                 <Input
-                  id={`length-${index}`}
-                  type="number"
-                  value={item.length}
-                  onChange={(e) => updateLineItem(index, "length", e.target.value)}
-                  min="0"
-                  step="0.001"
-                  placeholder="0.000"
-                  className="w-20"
+                  id={`description-${index}`}
+                  value={item.description}
+                  onChange={(e) => updateLineItem(index, "description", e.target.value)}
+                  placeholder="Item description"
                 />
+              </div>
+              <div className="w-28">
+                <Label>Size Input</Label>
                 <Select
-                  value={item.lengthUnit}
-                  onValueChange={(value) => updateLineItem(index, "lengthUnit", value as "inches" | "feet")}
+                  value={item.inputMethod}
+                  onValueChange={(value) => updateLineItem(index, "inputMethod", value as "dimensions" | "sqft")}
                 >
-                  <SelectTrigger className="w-16 ml-1">
+                  <SelectTrigger className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="inches">in</SelectItem>
-                    <SelectItem value="feet">ft</SelectItem>
+                    <SelectItem value="dimensions">L x W</SelectItem>
+                    <SelectItem value="sqft">Sq Ft</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+              <Button variant="destructive" size="icon" onClick={() => removeLineItem(index)}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
             </div>
-            <div className="w-32 flex flex-col">
-              <Label htmlFor={`width-${index}`}>Width</Label>
-              <div className="flex">
-                <Input
-                  id={`width-${index}`}
-                  type="number"
-                  value={item.width}
-                  onChange={(e) => updateLineItem(index, "width", e.target.value)}
-                  min="0"
-                  step="0.001"
-                  placeholder="0.000"
-                  className="w-20"
-                />
-                <Select
-                  value={item.widthUnit}
-                  onValueChange={(value) => updateLineItem(index, "widthUnit", value as "inches" | "feet")}
-                >
-                  <SelectTrigger className="w-16 ml-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="inches">in</SelectItem>
-                    <SelectItem value="feet">ft</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="w-32">
-              <Label htmlFor={`quantity-${index}`}>Quantity</Label>
-              <div className="flex">
-                {item.quantityType === "dropdown" ? (
-                  <Select value={item.quantity} onValueChange={(value) => updateLineItem(index, "quantity", value)}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select quantity" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {[...Array(100)].map((_, i) => (
-                        <SelectItem key={i + 1} value={(i + 1).toString()}>
-                          {i + 1}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
+            <div className="flex items-end gap-2">
+              {item.inputMethod === "dimensions" ? (
+                <>
+                  <div className="w-32 flex flex-col">
+                    <Label htmlFor={`length-${index}`}>Length</Label>
+                    <div className="flex">
+                      <Input
+                        id={`length-${index}`}
+                        type="number"
+                        value={item.length}
+                        onChange={(e) => updateLineItem(index, "length", e.target.value)}
+                        min="0"
+                        step="0.001"
+                        placeholder="0.000"
+                        className="w-20"
+                      />
+                      <Select
+                        value={item.lengthUnit}
+                        onValueChange={(value) => updateLineItem(index, "lengthUnit", value as "inches" | "feet")}
+                      >
+                        <SelectTrigger className="w-16 ml-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="inches">in</SelectItem>
+                          <SelectItem value="feet">ft</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="w-32 flex flex-col">
+                    <Label htmlFor={`width-${index}`}>Width</Label>
+                    <div className="flex">
+                      <Input
+                        id={`width-${index}`}
+                        type="number"
+                        value={item.width}
+                        onChange={(e) => updateLineItem(index, "width", e.target.value)}
+                        min="0"
+                        step="0.001"
+                        placeholder="0.000"
+                        className="w-20"
+                      />
+                      <Select
+                        value={item.widthUnit}
+                        onValueChange={(value) => updateLineItem(index, "widthUnit", value as "inches" | "feet")}
+                      >
+                        <SelectTrigger className="w-16 ml-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="inches">in</SelectItem>
+                          <SelectItem value="feet">ft</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="w-40 flex flex-col">
+                  <Label htmlFor={`sqft-${index}`}>Square Feet</Label>
                   <Input
-                    id={`quantity-${index}`}
+                    id={`sqft-${index}`}
                     type="number"
-                    value={item.quantity}
-                    onChange={(e) => updateLineItem(index, "quantity", e.target.value)}
-                    min="1"
-                    step="1"
-                    placeholder="Enter quantity"
+                    value={item.sqft}
+                    onChange={(e) => updateLineItem(index, "sqft", e.target.value)}
+                    min="0"
+                    step="0.01"
+                    placeholder="Enter sq ft"
                   />
-                )}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={() =>
-                    updateLineItem(index, "quantityType", item.quantityType === "dropdown" ? "manual" : "dropdown")
-                  }
-                  className="ml-2"
-                >
-                  {item.quantityType === "dropdown" ? "✎" : "▼"}
-                </Button>
+                </div>
+              )}
+              <div className="w-32">
+                <Label htmlFor={`quantity-${index}`}>Quantity</Label>
+                <div className="flex">
+                  {item.quantityType === "dropdown" ? (
+                    <Select value={item.quantity} onValueChange={(value) => updateLineItem(index, "quantity", value)}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select quantity" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[...Array(100)].map((_, i) => (
+                          <SelectItem key={i + 1} value={(i + 1).toString()}>
+                            {i + 1}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input
+                      id={`quantity-${index}`}
+                      type="number"
+                      value={item.quantity}
+                      onChange={(e) => updateLineItem(index, "quantity", e.target.value)}
+                      min="1"
+                      step="1"
+                      placeholder="Enter quantity"
+                    />
+                  )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() =>
+                      updateLineItem(index, "quantityType", item.quantityType === "dropdown" ? "manual" : "dropdown")
+                    }
+                    className="ml-2"
+                  >
+                    {item.quantityType === "dropdown" ? "✎" : "▼"}
+                  </Button>
+                </div>
               </div>
             </div>
-            <Button variant="destructive" size="icon" onClick={() => removeLineItem(index)}>
-              <Trash2 className="h-4 w-4" />
-            </Button>
           </div>
         ))}
         <Button onClick={addLineItem} className="mt-2">
@@ -1126,9 +1352,9 @@ View full invoice: ${shareableLink}
         </Button>
       </div>
 
-      <div className="mb-6">
-        <h2 className="text-xl font-semibold mb-4">Additional Costs</h2>
-        <div className="grid grid-cols-2 gap-4">
+      <div className="mb-4">
+        <h2 className="text-base font-semibold mb-2">Additional Costs</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <Label htmlFor="formingCost">Forming Cost ($)</Label>
             <Input
@@ -1159,23 +1385,35 @@ View full invoice: ${shareableLink}
         </div>
       </div>
 
-      <div className="mb-6">
-        <h2 className="text-xl font-semibold mb-4">Plasma Cutting Costs</h2>
-        <div className="grid grid-cols-2 gap-4">
+      <div className="mb-4">
+        <h2 className="text-base font-semibold mb-2">Plasma Cutting Costs</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
-            <Label htmlFor="plasmaCuttingMinutes">Runtime (Minutes)</Label>
-            <Input
-              id="plasmaCuttingMinutes"
-              type="number"
-              value={plasmaCuttingMinutes}
-              onChange={(e) => setPlasmaCuttingMinutes(e.target.value)}
-              min="0"
-              step="0.1"
-              placeholder="0.0"
-            />
+            <Label htmlFor="plasmaCuttingMinutes">Runtime</Label>
+            <div className="flex gap-1">
+              <Input
+                id="plasmaCuttingMinutes"
+                type="number"
+                value={plasmaCuttingMinutes}
+                onChange={(e) => setPlasmaCuttingMinutes(e.target.value)}
+                min="0"
+                step="0.1"
+                placeholder="0.0"
+                className="flex-1"
+              />
+              <Select value={plasmaTimeUnit} onValueChange={(v) => setPlasmaTimeUnit(v as "minutes" | "hours")}>
+                <SelectTrigger className="w-24">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="minutes">Min</SelectItem>
+                  <SelectItem value="hours">Hrs</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div>
-            <Label htmlFor="plasmaCostPerMinute">Cost per Minute ($)</Label>
+            <Label htmlFor="plasmaCostPerMinute">Cost per {plasmaTimeUnit === "hours" ? "Hour" : "Minute"} ($)</Label>
             <Input
               id="plasmaCostPerMinute"
               type="number"
@@ -1186,12 +1424,18 @@ View full invoice: ${shareableLink}
               placeholder="0.00"
             />
           </div>
+          <div>
+            <Label>Plasma Total</Label>
+            <div className="bg-gray-100 border border-gray-200 rounded-md px-3 py-2 text-sm font-medium text-gray-700">
+              ${calculatePlasmaCuttingCost().toFixed(2)}
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="mb-6">
-        <h2 className="text-xl font-semibold mb-4">Labor Costs</h2>
-        <div className="grid grid-cols-2 gap-4">
+      <div className="mb-4">
+        <h2 className="text-base font-semibold mb-2">Labor Costs</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             <Label htmlFor="hourlyRate">Hourly Rate ($)</Label>
             <Input
@@ -1205,158 +1449,153 @@ View full invoice: ${shareableLink}
             />
           </div>
           <div>
-            <Label htmlFor="hoursWorked">Hours Worked</Label>
-            <Input
-              id="hoursWorked"
-              type="number"
-              value={hoursWorked}
-              onChange={(e) => setHoursWorked(e.target.value)}
-              min="0"
-              step="0.1"
-              placeholder="0.0"
-            />
+            <Label htmlFor="hoursWorked">Time Worked</Label>
+            <div className="flex gap-1">
+              <Input
+                id="hoursWorked"
+                type="number"
+                value={hoursWorked}
+                onChange={(e) => setHoursWorked(e.target.value)}
+                min="0"
+                step="0.1"
+                placeholder="0.0"
+                className="flex-1"
+              />
+              <Select value={laborTimeUnit} onValueChange={(v) => setLaborTimeUnit(v as "hours" | "minutes")}>
+                <SelectTrigger className="w-24">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="hours">Hrs</SelectItem>
+                  <SelectItem value="minutes">Min</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div>
+            <Label>Labor Total</Label>
+            <div className="bg-gray-100 border border-gray-200 rounded-md px-3 py-2 text-sm font-medium text-gray-700">
+              ${calculateLaborCost().toFixed(2)}
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="mb-6">
-        <h2 className="text-xl font-semibold mb-4">Invoice Summary</h2>
-        <p className="text-lg">Subtotal: ${calculateTotal()}</p>
-        <p className="text-lg">
-          Total Forming Cost: $
-          {formingCostMethod === "perItem"
-            ? lineItems
-                .reduce(
-                  (total, item) =>
-                    total + (Number.parseFloat(formingCost) || 0) * (Number.parseFloat(item.quantity) || 0),
-                  0,
-                )
-                .toFixed(2)
-            : formingCost}
-        </p>
-        {calculatePlasmaCuttingCost() > 0 && (
-          <p className="text-lg">Plasma Cutting Cost: ${calculatePlasmaCuttingCost().toFixed(2)}</p>
-        )}
-        {calculateLaborCost() > 0 && <p className="text-lg">Labor Cost: ${calculateLaborCost().toFixed(2)}</p>}
-        <p className="text-2xl font-bold">Total: ${calculateTotal()}</p>
+      <div className="mb-4">
+        <h2 className="text-base font-semibold mb-2">{documentType === "invoice" ? "Invoice" : "Quote"} Summary</h2>
+        <div className="bg-white border border-gray-200 rounded-lg p-3 space-y-1">
+          <p className="text-sm">Material Cost: ${calculateMaterialCost().toFixed(2)}</p>
+          <p className="text-sm">
+            Total Forming Cost: $
+            {formingCostMethod === "perItem"
+              ? lineItems
+                  .reduce(
+                    (total, item) =>
+                      total + (Number.parseFloat(formingCost) || 0) * (Number.parseFloat(item.quantity) || 0),
+                    0,
+                  )
+                  .toFixed(2)
+              : (Number.parseFloat(formingCost) || 0).toFixed(2)}
+          </p>
+          {calculatePlasmaCuttingCost() > 0 && (
+            <p className="text-sm">Plasma Cutting Cost: ${calculatePlasmaCuttingCost().toFixed(2)}</p>
+          )}
+          {calculateLaborCost() > 0 && <p className="text-sm">Labor Cost: ${calculateLaborCost().toFixed(2)}</p>}
+          <div className="border-t border-gray-300 pt-1.5 mt-1.5">
+            <p className="text-lg font-bold">Total: ${calculateTotal()}</p>
+          </div>
+          <div className="border-t-2 border-green-400 pt-2 mt-2 bg-green-50 rounded-lg p-3">
+            <p className="text-xs text-green-700 font-medium">For Your Eyes Only - Not Shown on Invoice</p>
+            <p className="text-lg font-bold text-green-700">Net Profit: ${calculateNetProfit()}</p>
+          </div>
+        </div>
       </div>
 
-      <div className="flex justify-end mb-6">
+      <div className="flex justify-end mb-4">
         <Button
           onClick={() => {
             console.log("Generate Invoice button clicked")
             generateInvoice()
           }}
+          className={documentType === "invoice" ? "bg-green-600 hover:bg-green-700" : "bg-blue-600 hover:bg-blue-700"}
         >
-          Generate Invoice
+          Generate {documentType === "invoice" ? "Invoice" : "Quote"}
         </Button>
       </div>
 
       {generatedInvoice && (
-        <div className="border-2 border-gray-300 rounded-lg bg-white mt-8 shadow-lg max-w-4xl mx-auto">
-          {/* Header Section */}
-          <div className="bg-gray-50 p-6 border-b border-gray-200">
-            <div className="flex justify-between items-start">
+        <div className="border-2 border-gray-300 rounded-lg bg-white mt-6 shadow-lg max-w-3xl mx-auto text-sm">
+          {/* Header */}
+          <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+            <div className="flex flex-col sm:flex-row justify-between items-start gap-3">
               <div>
-                <h1 className="text-4xl font-bold text-gray-800 mb-2">{generatedInvoice.companyInfo.name}</h1>
-                <div className="text-gray-600 space-y-1">
-                  <p className="flex items-center">
-                    <span className="font-medium">📍</span> {generatedInvoice.companyInfo.address}
-                  </p>
-                  <p className="flex items-center">
-                    <span className="font-medium">📞</span> {generatedInvoice.companyInfo.phone}
-                  </p>
+                <h1 className="text-lg sm:text-xl font-bold text-gray-800">{generatedInvoice.companyInfo.name}</h1>
+                <div className="text-gray-600 text-xs space-y-0.5 mt-1">
+                  <p>{generatedInvoice.companyInfo.address}</p>
+                  <p>{generatedInvoice.companyInfo.phone}</p>
                 </div>
               </div>
-              <div className="text-right">
-                <div className="bg-blue-600 text-white px-4 py-2 rounded-lg mb-3">
-                  <h2 className="text-2xl font-bold">INVOICE</h2>
+              <div className="text-right flex-shrink-0">
+                <div className={`${generatedInvoice.documentType === "quote" ? "bg-blue-600" : "bg-green-600"} text-white px-2.5 py-1 rounded-md mb-2 inline-block`}>
+                  <h2 className="text-sm font-bold">{generatedInvoice.documentType === "quote" ? "QUOTE" : "INVOICE"}</h2>
                 </div>
-                <div className="text-sm text-gray-600 space-y-1">
-                  <p>
-                    <span className="font-medium">Invoice #:</span> {generatedInvoice.invoiceNumber}
-                  </p>
-                  <p>
-                    <span className="font-medium">Date:</span> {new Date(generatedInvoice.date).toLocaleDateString()}
-                  </p>
-                  <p>
-                    <span className="font-medium">Due Date:</span>{" "}
-                    {new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}
-                  </p>
+                <div className={`border-2 ${generatedInvoice.documentType === "quote" ? "border-blue-300" : "border-green-300"} rounded-md p-2 space-y-1`}>
+                  <div className="flex justify-between gap-3 text-xs">
+                    <span className="font-bold text-gray-700">{generatedInvoice.documentType === "quote" ? "Quote" : "Invoice"} #:</span>
+                    <span className="font-mono font-semibold text-gray-900">{generatedInvoice.invoiceNumber}</span>
+                  </div>
+                  <div className={`border-t ${generatedInvoice.documentType === "quote" ? "border-blue-200" : "border-green-200"}`} />
+                  <div className="flex justify-between gap-3 text-xs">
+                    <span className="font-bold text-gray-700">Date:</span>
+                    <span className="text-gray-900">{new Date(generatedInvoice.date).toLocaleDateString()}</span>
+                  </div>
+                  <div className={`border-t ${generatedInvoice.documentType === "quote" ? "border-blue-200" : "border-green-200"}`} />
+                  <div className="flex justify-between gap-3 text-xs">
+                    <span className="font-bold text-gray-700">{generatedInvoice.documentType === "quote" ? "Valid Until:" : "Due Date:"}</span>
+                    <span className="text-gray-900">{generatedInvoice.documentType === "quote"
+                      ? new Date(new Date(generatedInvoice.date).getTime() + 24 * 60 * 60 * 1000).toLocaleDateString()
+                      : new Date(new Date(generatedInvoice.date).getTime() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}</span>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Customer Information */}
-          <div className="p-6 border-b border-gray-200">
-            <div className="grid grid-cols-1 gap-6">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-3 border-b border-gray-300 pb-1">Bill To:</h3>
-                <div className="space-y-2 text-gray-700">
-                  <p className="font-medium text-lg">{generatedInvoice.customerName}</p>
-                  {generatedInvoice.projectName && (
-                    <p>
-                      <span className="font-medium">Project:</span> {generatedInvoice.projectName}
-                    </p>
-                  )}
-                  {generatedInvoice.customerEmail && (
-                    <p>
-                      <span className="font-medium">Email:</span> {generatedInvoice.customerEmail}
-                    </p>
-                  )}
-                  {generatedInvoice.poNumber && (
-                    <p>
-                      <span className="font-medium">PO Number:</span> {generatedInvoice.poNumber}
-                    </p>
-                  )}
-                </div>
-              </div>
+          {/* Bill To */}
+          <div className="px-4 py-3 border-b border-gray-200">
+            <h3 className="text-sm font-semibold text-gray-800 mb-1 border-b border-gray-300 pb-0.5">Bill To:</h3>
+            <div className="space-y-0.5 text-gray-700 text-xs">
+              <p className="font-medium text-sm">{generatedInvoice.customerName}</p>
+              {generatedInvoice.projectName && <p><span className="font-medium">Project:</span> {generatedInvoice.projectName}</p>}
+              {generatedInvoice.customerEmail && <p><span className="font-medium">Email:</span> {generatedInvoice.customerEmail}</p>}
+              {generatedInvoice.poNumber && <p><span className="font-medium">PO #:</span> {generatedInvoice.poNumber}</p>}
             </div>
           </div>
 
-          {/* Line Items Table */}
-          <div className="p-6">
-            <h3 className="text-xl font-semibold text-gray-800 mb-4">Itemized Invoice</h3>
+          {/* Table */}
+          <div className="px-4 py-3">
+            <h3 className="text-sm font-semibold text-gray-800 mb-2">Itemized {generatedInvoice.documentType === "quote" ? "Quote" : "Invoice"}</h3>
             <div className="overflow-x-auto">
-              <table className="w-full border-collapse border border-gray-300">
+              <table className="w-full border-collapse border border-gray-300 text-xs">
                 <thead>
                   <tr className="bg-gray-100">
-                    <th className="border border-gray-300 px-3 py-4 text-left font-semibold text-gray-700 w-12">#</th>
-                    <th className="border border-gray-300 px-4 py-4 text-left font-semibold text-gray-700 min-w-[200px]">
-                      Description
-                    </th>
-                    <th className="border border-gray-300 px-4 py-4 text-center font-semibold text-gray-700 min-w-[120px]">
-                      Dimensions
-                    </th>
-                    <th className="border border-gray-300 px-3 py-4 text-center font-semibold text-gray-700 w-16">
-                      Qty
-                    </th>
-                    <th className="border border-gray-300 px-4 py-4 text-right font-semibold text-gray-700 min-w-[100px]">
-                      Unit Price
-                    </th>
-                    <th className="border border-gray-300 px-4 py-4 text-right font-semibold text-gray-700 min-w-[100px]">
-                      Total
-                    </th>
+                    <th className="border border-gray-300 px-2 py-2 text-left font-semibold text-gray-700 w-8">#</th>
+                    <th className="border border-gray-300 px-2 py-2 text-left font-semibold text-gray-700">Description</th>
+                    <th className="border border-gray-300 px-2 py-2 text-center font-semibold text-gray-700">Dimensions / Sq Ft</th>
+                    <th className="border border-gray-300 px-2 py-2 text-center font-semibold text-gray-700 w-12">Qty</th>
                   </tr>
                 </thead>
                 <tbody>
                   {generatedInvoice.lineItems.map((item: any, index: number) => (
                     <tr key={index} className="hover:bg-gray-50">
-                      <td className="border border-gray-300 px-3 py-4 text-center font-medium">{index + 1}</td>
-                      <td className="border border-gray-300 px-4 py-4 break-words">
-                        {item.description || "Custom Part"}
+                      <td className="border border-gray-300 px-2 py-1.5 text-center font-medium">{index + 1}</td>
+                      <td className="border border-gray-300 px-2 py-1.5 break-words">{item.description || "Custom Part"}</td>
+                      <td className="border border-gray-300 px-2 py-1.5 text-center whitespace-nowrap">
+                        {item.inputMethod === "sqft"
+                          ? `${item.sqft} sq ft`
+                          : `${item.length} ${item.lengthUnit} x ${item.width} ${item.widthUnit}`}
                       </td>
-                      <td className="border border-gray-300 px-4 py-4 text-center whitespace-nowrap">
-                        {item.length} {item.lengthUnit} × {item.width} {item.widthUnit}
-                      </td>
-                      <td className="border border-gray-300 px-3 py-4 text-center">{item.quantity}</td>
-                      <td className="border border-gray-300 px-4 py-4 text-right font-mono">
-                        ${(Number.parseFloat(item.cost) / Number.parseFloat(item.quantity)).toFixed(2)}
-                      </td>
-                      <td className="border border-gray-300 px-4 py-4 text-right font-medium font-mono">
-                        ${item.cost}
-                      </td>
+                      <td className="border border-gray-300 px-2 py-1.5 text-center">{item.quantity}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1364,130 +1603,96 @@ View full invoice: ${shareableLink}
             </div>
           </div>
 
-          {/* Cost Breakdown */}
-          <div className="px-6 pb-6">
+          {/* Total */}
+          <div className="px-4 pb-3">
             <div className="flex justify-end">
-              <div className="w-full max-w-lg">
-                <div className="bg-gray-50 p-6 rounded-lg border">
-                  <h4 className="font-semibold text-gray-800 mb-4 border-b border-gray-300 pb-2">Cost Breakdown</h4>
-
-                  {/* Subtotal */}
-                  <div className="flex justify-between py-3 text-gray-700 border-b border-gray-200">
-                    <span className="font-medium">Subtotal (Materials):</span>
-                    <span className="font-mono">
-                      $
-                      {lineItems
-                        .reduce((total, item) => {
-                          const itemCost = calculatePartCost(item)
-                          return isNaN(itemCost) ? total : total + itemCost
-                        }, 0)
-                        .toFixed(2)}
-                    </span>
-                  </div>
-
-                  {/* Markup */}
-                  <div className="flex justify-between py-3 text-gray-700 border-b border-gray-200">
-                    <span className="font-medium">Markup ({markupPercentage}%):</span>
-                    <span className="font-mono">
-                      $
-                      {(
-                        lineItems.reduce((total, item) => {
-                          const itemCost = calculatePartCost(item)
-                          return isNaN(itemCost) ? total : total + itemCost
-                        }, 0) * (Number.parseFloat(markupPercentage) / 100 || 0)
-                      ).toFixed(2)}
-                    </span>
-                  </div>
-
-                  {/* Forming Cost */}
-                  {Number(generatedInvoice.totalFormingCost) > 0 && (
-                    <div className="flex justify-between items-start py-3 text-gray-700 border-b border-gray-200">
-                      <div className="flex flex-col pr-4">
-                        <span className="font-medium">Forming Cost:</span>
-                        <span className="text-sm text-gray-500 break-words">
-                          ({generatedInvoice.formingCostMethod === "perItem" ? "Per Item" : "Total"})
-                        </span>
-                      </div>
-                      <span className="font-mono text-right">${generatedInvoice.totalFormingCost}</span>
-                    </div>
-                  )}
-
-                  {/* Plasma Cutting Cost */}
-                  {generatedInvoice.plasmaCuttingCost && (
-                    <div className="flex justify-between items-start py-3 text-gray-700 border-b border-gray-200">
-                      <div className="flex flex-col pr-4">
-                        <span className="font-medium">Plasma Cutting:</span>
-                        <span className="text-sm text-gray-500 break-words">
-                          ({generatedInvoice.plasmaCuttingMinutes}min @ ${generatedInvoice.plasmaCostPerMinute}/min)
-                        </span>
-                      </div>
-                      <span className="font-mono text-right">${generatedInvoice.plasmaCuttingCost}</span>
-                    </div>
-                  )}
-
-                  {/* Labor Cost */}
-                  {generatedInvoice.laborCost && (
-                    <div className="flex justify-between items-start py-3 text-gray-700 border-b border-gray-200">
-                      <div className="flex flex-col pr-4">
-                        <span className="font-medium">Labor:</span>
-                        <span className="text-sm text-gray-500 break-words">
-                          ({generatedInvoice.hoursWorked}hrs @ ${generatedInvoice.hourlyRate}/hr)
-                        </span>
-                      </div>
-                      <span className="font-mono text-right">${generatedInvoice.laborCost}</span>
-                    </div>
-                  )}
-
-                  {/* Total */}
-                  <div className="border-t-2 border-gray-400 mt-4 pt-4">
-                    <div className="flex justify-between py-2 text-xl font-bold text-gray-800">
-                      <span>TOTAL:</span>
-                      <span className="font-mono text-2xl">${generatedInvoice.total}</span>
-                    </div>
-                  </div>
+              <div className="bg-gray-900 text-white px-5 py-3 rounded-md">
+                <div className="flex items-center gap-4">
+                  <span className="text-base font-bold">TOTAL:</span>
+                  <span className="text-lg font-bold font-mono">${generatedInvoice.total}</span>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Terms and Actions */}
-          <div className="bg-gray-50 p-6 border-t border-gray-200">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Terms + Actions */}
+          <div className="bg-gray-50 px-4 py-3 border-t border-gray-200">
+            <div className="flex flex-col sm:flex-row gap-4 justify-between">
               <div>
-                <h4 className="font-semibold text-gray-800 mb-2">Payment Terms:</h4>
-                <ul className="text-sm text-gray-600 space-y-1">
-                  <li>• Payment due within 30 days of invoice date</li>
-                  <li>• Late payments subject to 1.5% monthly service charge</li>
-                  <li>• Please include invoice number with payment</li>
-                  <li>• Thank you for your business!</li>
+                <h4 className="font-semibold text-gray-800 text-xs mb-1">{generatedInvoice.documentType === "quote" ? "Terms & Conditions:" : "Payment Terms:"}</h4>
+                <ul className="text-xs text-gray-600 space-y-0.5">
+                  {generatedInvoice.documentType === "quote" ? (
+                    <>
+                      <li>This quote is valid for 24 hours from the date above</li>
+                      <li>Prices are subject to change after expiration</li>
+                      <li>Please reference quote #{generatedInvoice.invoiceNumber} when placing order</li>
+                      <li>Thank you for your interest!</li>
+                    </>
+                  ) : (
+                    <>
+                      <li>Payment due within 30 days of invoice date</li>
+                      <li>Late payments subject to 1.5% monthly service charge</li>
+                      <li>Please include invoice number with payment</li>
+                      <li>Thank you for your business!</li>
+                    </>
+                  )}
                 </ul>
               </div>
-              <div className="flex flex-col justify-center">
-                <div className="flex justify-end space-x-4">
-                  <Button onClick={handleShare} className="flex items-center bg-blue-600 hover:bg-blue-700">
-                    <Share2 className="mr-2 h-4 w-4" />
-                    Share Invoice
-                  </Button>
-                  <Button onClick={generatePDF} className="flex items-center bg-green-600 hover:bg-green-700">
-                    <Download className="mr-2 h-4 w-4" />
-                    Download PDF
-                  </Button>
-                </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <Button onClick={handleShare} size="sm" className={`flex items-center text-xs ${generatedInvoice.documentType === "quote" ? "bg-blue-600 hover:bg-blue-700" : "bg-green-600 hover:bg-green-700"}`}>
+                  <Share2 className="mr-1 h-3 w-3" />
+                  Share
+                </Button>
+                <Button onClick={generatePDF} size="sm" className="flex items-center text-xs bg-gray-800 hover:bg-gray-900">
+                  <Download className="mr-1 h-3 w-3" />
+                  Download PDF
+                </Button>
               </div>
             </div>
           </div>
 
           {/* Footer */}
-          <div className="bg-gray-800 text-white p-4 text-center text-sm rounded-b-lg">
+          <div className="bg-gray-800 text-white px-4 py-2 text-center text-xs rounded-b-lg">
             <p>Thank you for choosing {generatedInvoice.companyInfo.name}. We appreciate your business!</p>
-            <p className="mt-1 text-gray-300">
-              For questions about this invoice, please contact us at {generatedInvoice.companyInfo.phone}
+            <p className="mt-0.5 text-gray-300">
+              For questions, please contact us at {generatedInvoice.companyInfo.phone}
             </p>
           </div>
         </div>
       )}
 
-      <RecentQuotes quotes={recentInvoices} />
+      {/* Saved Drafts Section */}
+      {savedDrafts.length > 0 && (
+        <div className="mt-6">
+          <h2 className="text-lg font-bold mb-2">Saved Drafts</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {savedDrafts.map((draft) => (
+              <div key={draft.id} className="border border-amber-200 bg-amber-50 p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+                <div className="flex justify-between items-start mb-2">
+                  <h3 className="font-semibold text-gray-800 truncate flex-1">{draft.label}</h3>
+                  <span className="text-xs bg-amber-200 text-amber-800 px-2 py-1 rounded font-medium ml-2">Draft</span>
+                </div>
+                {draft.companyInfo?.name && (
+                  <p className="text-sm text-gray-600">Company: {draft.companyInfo.name}</p>
+                )}
+                <p className="text-sm text-gray-600">Material: {draft.materialType}</p>
+                <p className="text-sm text-gray-600">Items: {draft.lineItems?.length || 0}</p>
+                <p className="text-sm text-gray-500 mt-1">Saved: {new Date(draft.savedAt).toLocaleDateString()} {new Date(draft.savedAt).toLocaleTimeString()}</p>
+                <div className="mt-3 flex gap-2">
+                  <Button onClick={() => loadDraft(draft)} className="flex-1 bg-amber-600 hover:bg-amber-700">
+                    Load & Edit
+                  </Button>
+                  <Button onClick={() => deleteDraft(draft.id)} variant="destructive" size="icon">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <RecentQuotes quotes={recentInvoices} onEdit={loadInvoiceForEdit} onDelete={deleteInvoice} />
     </div>
   )
 }
