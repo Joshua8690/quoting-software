@@ -657,235 +657,194 @@ View full invoice: ${shareableLink}
     if (generatedInvoice) {
       const doc = new jsPDF()
       const pageWidth = 210
-      const margin = 15
+      const margin = 12
       const contentWidth = pageWidth - margin * 2
-
-      // ===== HEADER SECTION (matches on-screen gray header) =====
-      doc.setFillColor(249, 250, 251) // bg-gray-50
-      doc.rect(0, 0, pageWidth, 55, "F")
-      doc.setDrawColor(229, 231, 235) // border-gray-200
-      doc.setLineWidth(0.5)
-      doc.line(0, 55, pageWidth, 55)
-
-      // Company Name (left side)
-      doc.setTextColor(31, 41, 55) // text-gray-800
-      doc.setFontSize(20)
-      doc.setFont("helvetica", "bold")
-      doc.text(generatedInvoice.companyInfo.name, margin, 18)
-
-      // Company address & phone
-      doc.setTextColor(75, 85, 99) // text-gray-600
-      doc.setFontSize(9)
-      doc.setFont("helvetica", "normal")
-      doc.text(generatedInvoice.companyInfo.address, margin, 28)
-      doc.text(generatedInvoice.companyInfo.phone, margin, 35)
-
-      // Document type badge (right side) - small, ink-friendly
       const isQuote = generatedInvoice.documentType === "quote"
       const docLabel = isQuote ? "QUOTE" : "INVOICE"
-      if (isQuote) {
-        doc.setFillColor(37, 99, 235) // blue
-      } else {
-        doc.setFillColor(22, 163, 74) // green
-      }
-      doc.roundedRect(158, 10, 38, 11, 2, 2, "F")
-      doc.setTextColor(255, 255, 255)
-      doc.setFontSize(11)
-      doc.setFont("helvetica", "bold")
-      doc.text(docLabel, isQuote ? 165 : 163, 18)
 
-      // Document details box (right side, below badge) - bordered title block
-      const detailBoxX = 140
-      const detailBoxY = 24
-      const detailBoxW = 56
-      const detailBoxH = 28
-      if (isQuote) {
-        doc.setDrawColor(147, 197, 253) // blue-300
-      } else {
-        doc.setDrawColor(134, 239, 172) // green-300
-      }
-      doc.setLineWidth(0.8)
-      doc.roundedRect(detailBoxX, detailBoxY, detailBoxW, detailBoxH, 2, 2, "S")
+      // ===== HEADER =====
+      doc.setFillColor(249, 250, 251)
+      doc.rect(0, 0, pageWidth, 42, "F")
+      doc.setDrawColor(229, 231, 235)
+      doc.setLineWidth(0.5)
+      doc.line(0, 42, pageWidth, 42)
+
+      doc.setTextColor(31, 41, 55)
+      doc.setFontSize(16)
+      doc.setFont("helvetica", "bold")
+      doc.text(generatedInvoice.companyInfo.name, margin, 14)
+
+      doc.setTextColor(75, 85, 99)
+      doc.setFontSize(7)
+      doc.setFont("helvetica", "normal")
+      doc.text(generatedInvoice.companyInfo.address, margin, 21)
+      doc.text(generatedInvoice.companyInfo.phone, margin, 27)
+
+      // Badge
+      if (isQuote) { doc.setFillColor(37, 99, 235) } else { doc.setFillColor(22, 163, 74) }
+      doc.roundedRect(162, 7, 36, 10, 2, 2, "F")
+      doc.setTextColor(255, 255, 255)
+      doc.setFontSize(9)
+      doc.setFont("helvetica", "bold")
+      doc.text(docLabel, isQuote ? 168 : 167, 14)
+
+      // Detail box
+      const bx = 145, by = 20, bw = 53, bh = 20
+      if (isQuote) { doc.setDrawColor(147, 197, 253) } else { doc.setDrawColor(134, 239, 172) }
+      doc.setLineWidth(0.6)
+      doc.roundedRect(bx, by, bw, bh, 1.5, 1.5, "S")
 
       doc.setTextColor(55, 65, 81)
-      doc.setFontSize(7)
+      doc.setFontSize(6.5)
       doc.setFont("helvetica", "bold")
-      doc.text(`${isQuote ? "Quote" : "Invoice"} #:`, detailBoxX + 3, detailBoxY + 6)
+      doc.text(`${isQuote ? "Quote" : "Invoice"} #:`, bx + 2, by + 5)
       doc.setFont("helvetica", "normal")
-      doc.text(generatedInvoice.invoiceNumber, detailBoxX + detailBoxW - 3, detailBoxY + 6, { align: "right" })
+      doc.text(generatedInvoice.invoiceNumber, bx + bw - 2, by + 5, { align: "right" })
 
-      // Divider
-      if (isQuote) {
-        doc.setDrawColor(191, 219, 254) // blue-200
-      } else {
-        doc.setDrawColor(187, 247, 208) // green-200
-      }
-      doc.setLineWidth(0.3)
-      doc.line(detailBoxX + 2, detailBoxY + 9, detailBoxX + detailBoxW - 2, detailBoxY + 9)
+      if (isQuote) { doc.setDrawColor(191, 219, 254) } else { doc.setDrawColor(187, 247, 208) }
+      doc.setLineWidth(0.2)
+      doc.line(bx + 1, by + 7, bx + bw - 1, by + 7)
 
       doc.setFont("helvetica", "bold")
-      doc.text("Date:", detailBoxX + 3, detailBoxY + 15)
+      doc.text("Date:", bx + 2, by + 11.5)
       doc.setFont("helvetica", "normal")
-      doc.text(new Date(generatedInvoice.date).toLocaleDateString(), detailBoxX + detailBoxW - 3, detailBoxY + 15, { align: "right" })
+      doc.text(new Date(generatedInvoice.date).toLocaleDateString(), bx + bw - 2, by + 11.5, { align: "right" })
 
-      // Divider
-      doc.line(detailBoxX + 2, detailBoxY + 18, detailBoxX + detailBoxW - 2, detailBoxY + 18)
+      doc.line(bx + 1, by + 13.5, bx + bw - 1, by + 13.5)
 
       const dueDateLabel = isQuote ? "Valid Until:" : "Due Date:"
       const dueDate = isQuote
         ? new Date(new Date(generatedInvoice.date).getTime() + 24 * 60 * 60 * 1000).toLocaleDateString()
         : new Date(new Date(generatedInvoice.date).getTime() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()
       doc.setFont("helvetica", "bold")
-      doc.text(dueDateLabel, detailBoxX + 3, detailBoxY + 24)
+      doc.text(dueDateLabel, bx + 2, by + 18)
       doc.setFont("helvetica", "normal")
-      doc.text(dueDate, detailBoxX + detailBoxW - 3, detailBoxY + 24, { align: "right" })
+      doc.text(dueDate, bx + bw - 2, by + 18, { align: "right" })
 
-      // ===== BILL TO SECTION =====
-      let yPos = 65
-
-      // "Bill To:" header with underline
+      // ===== BILL TO =====
+      let yPos = 49
       doc.setTextColor(31, 41, 55)
-      doc.setFontSize(12)
+      doc.setFontSize(9)
       doc.setFont("helvetica", "bold")
       doc.text("Bill To:", margin, yPos)
-      doc.setDrawColor(209, 213, 219) // border-gray-300
-      doc.setLineWidth(0.3)
-      doc.line(margin, yPos + 2, margin + 30, yPos + 2)
-      yPos += 12
+      doc.setDrawColor(209, 213, 219)
+      doc.setLineWidth(0.2)
+      doc.line(margin, yPos + 1.5, margin + 20, yPos + 1.5)
+      yPos += 6
 
-      // Customer name
-      doc.setTextColor(55, 65, 81) // text-gray-700
-      doc.setFontSize(11)
+      doc.setTextColor(55, 65, 81)
+      doc.setFontSize(9)
       doc.setFont("helvetica", "bold")
       doc.text(generatedInvoice.customerName, margin, yPos)
-      yPos += 7
+      yPos += 5
 
-      doc.setFontSize(9)
+      doc.setFontSize(7.5)
       doc.setFont("helvetica", "normal")
 
       if (generatedInvoice.projectName && generatedInvoice.projectName.trim()) {
         doc.setFont("helvetica", "bold")
         doc.text("Project: ", margin, yPos)
         doc.setFont("helvetica", "normal")
-        doc.text(generatedInvoice.projectName, margin + 18, yPos)
-        yPos += 6
+        doc.text(generatedInvoice.projectName, margin + 15, yPos)
+        yPos += 4.5
       }
-
       if (generatedInvoice.customerEmail) {
         doc.setFont("helvetica", "bold")
         doc.text("Email: ", margin, yPos)
         doc.setFont("helvetica", "normal")
-        doc.text(generatedInvoice.customerEmail, margin + 14, yPos)
-        yPos += 6
+        doc.text(generatedInvoice.customerEmail, margin + 12, yPos)
+        yPos += 4.5
       }
-
       if (generatedInvoice.poNumber) {
         doc.setFont("helvetica", "bold")
-        doc.text("PO Number: ", margin, yPos)
+        doc.text("PO #: ", margin, yPos)
         doc.setFont("helvetica", "normal")
-        doc.text(generatedInvoice.poNumber, margin + 24, yPos)
-        yPos += 6
+        doc.text(generatedInvoice.poNumber, margin + 12, yPos)
+        yPos += 4.5
       }
 
-      // Divider line
-      yPos += 5
+      yPos += 2
       doc.setDrawColor(229, 231, 235)
-      doc.setLineWidth(0.5)
-      doc.line(margin, yPos, pageWidth - margin, yPos)
-      yPos += 10
-
-      // ===== ITEMIZED INVOICE TABLE =====
-      doc.setTextColor(31, 41, 55)
-      doc.setFontSize(13)
-      doc.setFont("helvetica", "bold")
-      doc.text(`Itemized ${isQuote ? "Quote" : "Invoice"}`, margin, yPos)
-      yPos += 8
-
-      // Table header
-      const colX = { num: margin, desc: margin + 12, dim: 120, qty: 175 }
-      doc.setFillColor(243, 244, 246) // bg-gray-100
-      doc.rect(margin, yPos - 5, contentWidth, 12, "F")
-
-      // Header borders
-      doc.setDrawColor(209, 213, 219)
       doc.setLineWidth(0.3)
-      doc.rect(margin, yPos - 5, contentWidth, 12, "S")
+      doc.line(margin, yPos, pageWidth - margin, yPos)
+      yPos += 5
 
-      doc.setFontSize(9)
-      doc.setFont("helvetica", "bold")
-      doc.setTextColor(55, 65, 81)
-      doc.text("#", colX.num + 2, yPos + 2)
-      doc.text("Description", colX.desc + 2, yPos + 2)
-      doc.text("Dimensions / Sq Ft", colX.dim, yPos + 2)
-      doc.text("Qty", colX.qty + 2, yPos + 2)
-
-      yPos += 12
-
-      // Table rows
-      doc.setFont("helvetica", "normal")
-      doc.setFontSize(9)
-      doc.setTextColor(31, 41, 55)
-
-      generatedInvoice.lineItems.forEach((item: any, index: number) => {
-        const rowHeight = 12
-        // Row border
-        doc.setDrawColor(209, 213, 219)
-        doc.rect(margin, yPos - 5, contentWidth, rowHeight, "S")
-
-        doc.text((index + 1).toString(), colX.num + 4, yPos + 2)
-        doc.text(item.description || "Custom Part", colX.desc + 2, yPos + 2)
-        const dimText = item.inputMethod === "sqft"
-          ? `${item.sqft} sq ft`
-          : `${item.length} ${item.lengthUnit} x ${item.width} ${item.widthUnit}`
-        doc.text(dimText, colX.dim, yPos + 2)
-        doc.text(item.quantity, colX.qty + 5, yPos + 2)
-
-        yPos += rowHeight
-
-        if (yPos > 250) {
-          doc.addPage()
-          yPos = 30
-        }
-      })
-
-      yPos += 15
-
-      // ===== TOTAL SECTION (dark box, matches on-screen) =====
-      const totalBoxHeight = 24
-      const totalBoxWidth = contentWidth * 0.55
-      const totalBoxX = pageWidth - margin - totalBoxWidth
-
-      doc.setFillColor(17, 24, 39) // bg-gray-900
-      doc.roundedRect(totalBoxX, yPos, totalBoxWidth, totalBoxHeight, 3, 3, "F")
-
-      doc.setTextColor(255, 255, 255)
-      doc.setFont("helvetica", "bold")
-      doc.setFontSize(16)
-      doc.text("TOTAL:", totalBoxX + 10, yPos + 16)
-      doc.text(`$${generatedInvoice.total}`, totalBoxX + totalBoxWidth - 10, yPos + 16, { align: "right" })
-
-      yPos += totalBoxHeight + 20
-
-      // ===== PAYMENT TERMS (matches on-screen) =====
-      // Check if we need a new page
-      if (yPos > 230) {
-        doc.addPage()
-        yPos = 30
-      }
-
-      // Gray background for terms section
-      doc.setFillColor(249, 250, 251)
-      doc.rect(margin, yPos - 5, contentWidth, 45, "F")
-      doc.setDrawColor(229, 231, 235)
-      doc.rect(margin, yPos - 5, contentWidth, 45, "S")
-
+      // ===== TABLE =====
       doc.setTextColor(31, 41, 55)
       doc.setFontSize(10)
       doc.setFont("helvetica", "bold")
-      doc.text(isQuote ? "Terms & Conditions:" : "Payment Terms:", margin + 5, yPos + 3)
+      doc.text(`Itemized ${isQuote ? "Quote" : "Invoice"}`, margin, yPos)
+      yPos += 5
+
+      const colX = { num: margin, desc: margin + 10, dim: 118, qty: 176 }
+      const rowH = 8
+
+      doc.setFillColor(243, 244, 246)
+      doc.rect(margin, yPos - 4, contentWidth, rowH, "F")
+      doc.setDrawColor(209, 213, 219)
+      doc.setLineWidth(0.2)
+      doc.rect(margin, yPos - 4, contentWidth, rowH, "S")
+
+      doc.setFontSize(7.5)
+      doc.setFont("helvetica", "bold")
+      doc.setTextColor(55, 65, 81)
+      doc.text("#", colX.num + 2, yPos + 1)
+      doc.text("Description", colX.desc + 2, yPos + 1)
+      doc.text("Dimensions / Sq Ft", colX.dim, yPos + 1)
+      doc.text("Qty", colX.qty + 2, yPos + 1)
+
+      yPos += rowH + 1
 
       doc.setFont("helvetica", "normal")
+      doc.setFontSize(7.5)
+      doc.setTextColor(31, 41, 55)
+
+      generatedInvoice.lineItems.forEach((item: any, index: number) => {
+        doc.setDrawColor(209, 213, 219)
+        doc.rect(margin, yPos - 4, contentWidth, rowH, "S")
+
+        doc.text((index + 1).toString(), colX.num + 3, yPos + 1)
+        doc.text(item.description || "Custom Part", colX.desc + 2, yPos + 1)
+        const dimText = item.inputMethod === "sqft"
+          ? `${item.sqft} sq ft`
+          : `${item.length} ${item.lengthUnit} x ${item.width} ${item.widthUnit}`
+        doc.text(dimText, colX.dim, yPos + 1)
+        doc.text(item.quantity, colX.qty + 4, yPos + 1)
+        yPos += rowH
+      })
+
+      yPos += 8
+
+      // ===== TOTAL =====
+      const tbW = contentWidth * 0.5
+      const tbX = pageWidth - margin - tbW
+      const tbH = 16
+
+      doc.setFillColor(17, 24, 39)
+      doc.roundedRect(tbX, yPos, tbW, tbH, 2, 2, "F")
+
+      doc.setTextColor(255, 255, 255)
+      doc.setFont("helvetica", "bold")
+      doc.setFontSize(12)
+      doc.text("TOTAL:", tbX + 8, yPos + 11)
+      doc.text(`$${generatedInvoice.total}`, tbX + tbW - 8, yPos + 11, { align: "right" })
+
+      yPos += tbH + 10
+
+      // ===== TERMS =====
+      const termsH = 32
+      doc.setFillColor(249, 250, 251)
+      doc.rect(margin, yPos - 3, contentWidth, termsH, "F")
+      doc.setDrawColor(229, 231, 235)
+      doc.rect(margin, yPos - 3, contentWidth, termsH, "S")
+
+      doc.setTextColor(31, 41, 55)
       doc.setFontSize(8)
+      doc.setFont("helvetica", "bold")
+      doc.text(isQuote ? "Terms & Conditions:" : "Payment Terms:", margin + 4, yPos + 3)
+
+      doc.setFont("helvetica", "normal")
+      doc.setFontSize(6.5)
       doc.setTextColor(75, 85, 99)
       const terms = isQuote
         ? [
@@ -901,35 +860,27 @@ View full invoice: ${shareableLink}
             "Thank you for your business!",
           ]
       terms.forEach((term, i) => {
-        doc.text(`\u2022  ${term}`, margin + 8, yPos + 12 + i * 6)
+        doc.text(`\u2022  ${term}`, margin + 6, yPos + 9 + i * 5)
       })
 
-      yPos += 55
+      yPos += termsH + 4
 
-      // ===== FOOTER (dark bar, matches on-screen) =====
-      if (yPos > 260) {
-        doc.addPage()
-        yPos = 260
-      }
-      const footerY = Math.max(yPos, 270)
-      doc.setFillColor(31, 41, 55) // bg-gray-800
-      doc.rect(0, footerY, pageWidth, 27, "F")
+      // ===== FOOTER =====
+      const footerY = Math.max(yPos, 275)
+      doc.setFillColor(31, 41, 55)
+      doc.rect(0, footerY, pageWidth, 22, "F")
 
       doc.setTextColor(255, 255, 255)
       doc.setFont("helvetica", "normal")
-      doc.setFontSize(8)
+      doc.setFontSize(7)
       doc.text(
         `Thank you for choosing ${generatedInvoice.companyInfo.name}. We appreciate your business!`,
-        pageWidth / 2,
-        footerY + 10,
-        { align: "center" },
+        pageWidth / 2, footerY + 8, { align: "center" },
       )
-      doc.setTextColor(209, 213, 219) // text-gray-300
+      doc.setTextColor(209, 213, 219)
       doc.text(
-        `For questions about this invoice, please contact us at ${generatedInvoice.companyInfo.phone}`,
-        pageWidth / 2,
-        footerY + 18,
-        { align: "center" },
+        `For questions, please contact us at ${generatedInvoice.companyInfo.phone}`,
+        pageWidth / 2, footerY + 15, { align: "center" },
       )
 
       doc.save(`${isQuote ? "Quote" : "Invoice"}_${generatedInvoice.invoiceNumber}.pdf`)
@@ -938,24 +889,24 @@ View full invoice: ${shareableLink}
   }
 
   return (
-    <div className="container mx-auto p-4 max-w-4xl">
-      <div className="flex justify-between items-center mb-6">
+    <div className="container mx-auto px-3 py-3 max-w-3xl text-sm">
+      <div className="flex flex-wrap justify-between items-center mb-4 gap-2">
         <div>
-          <h1 className="text-3xl font-bold">{documentType === "invoice" ? "Invoice" : "Quote"} Generator</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">{documentType === "invoice" ? "Invoice" : "Quote"} Generator</h1>
           <TimestampClock />
         </div>
-        <div className="flex gap-2">
-          <Button onClick={fillDemoData} variant="outline" className="border-amber-300 text-amber-700 hover:bg-amber-50">Demo</Button>
-          <Button onClick={saveDraft} variant="outline">Save Draft</Button>
-          <Button onClick={clearInvoice}>New {documentType === "invoice" ? "Invoice" : "Quote"}</Button>
+        <div className="flex flex-wrap gap-1.5">
+          <Button onClick={fillDemoData} variant="outline" size="sm" className="border-amber-300 text-amber-700 hover:bg-amber-50 text-xs">Demo</Button>
+          <Button onClick={saveDraft} variant="outline" size="sm" className="text-xs">Save Draft</Button>
+          <Button onClick={clearInvoice} size="sm" className="text-xs">New {documentType === "invoice" ? "Invoice" : "Quote"}</Button>
         </div>
       </div>
 
       {/* Document Type Toggle */}
-      <div className="mb-6 flex gap-3">
+      <div className="mb-4 flex gap-2">
         <button
           onClick={() => setDocumentType("invoice")}
-          className={`px-5 py-2 rounded-md font-semibold text-sm transition-colors ${
+          className={`px-4 py-1.5 rounded-md font-semibold text-xs transition-colors ${
             documentType === "invoice"
               ? "bg-green-600 text-white"
               : "bg-gray-100 text-gray-500 border border-gray-200"
@@ -965,7 +916,7 @@ View full invoice: ${shareableLink}
         </button>
         <button
           onClick={() => setDocumentType("quote")}
-          className={`px-5 py-2 rounded-md font-semibold text-sm transition-colors ${
+          className={`px-4 py-1.5 rounded-md font-semibold text-xs transition-colors ${
             documentType === "quote"
               ? "bg-blue-600 text-white"
               : "bg-gray-100 text-gray-500 border border-gray-200"
@@ -976,19 +927,19 @@ View full invoice: ${shareableLink}
       </div>
 
       {/* Company Information - Auto-filled */}
-      <div className="mb-6 bg-gray-50 border border-gray-200 rounded-lg p-4">
-        <h2 className="text-xl font-semibold mb-2">Your Company</h2>
-        <div className="flex flex-wrap gap-6 text-gray-700">
-          <p className="font-bold text-lg">{MY_COMPANY.name}</p>
+      <div className="mb-4 bg-gray-50 border border-gray-200 rounded-lg p-3">
+        <p className="text-xs text-gray-500 mb-0.5">Your Company</p>
+        <div className="flex flex-wrap gap-3 text-gray-700 text-xs sm:text-sm">
+          <p className="font-bold">{MY_COMPANY.name}</p>
           <p>{MY_COMPANY.phone}</p>
           <p>{MY_COMPANY.address}</p>
         </div>
       </div>
 
       {/* Customer Information with Dropdowns */}
-      <div className="mb-6">
-        <h2 className="text-xl font-semibold mb-4">Customer Information</h2>
-        <div className="grid grid-cols-2 gap-4">
+      <div className="mb-4">
+        <h2 className="text-base font-semibold mb-2">Customer Information</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <Label htmlFor="customerName">Customer Name</Label>
             <Select value={customerName} onValueChange={setCustomerName}>
@@ -1066,12 +1017,12 @@ View full invoice: ${shareableLink}
       </div>
 
       {/* Invoice Details with Dropdown */}
-      <div className="mb-6">
-        <h2 className="text-xl font-semibold mb-4">{documentType === "invoice" ? "Invoice" : "Quote"} Details</h2>
-        <div className="grid grid-cols-2 gap-4">
+      <div className="mb-4">
+        <h2 className="text-base font-semibold mb-2">{documentType === "invoice" ? "Invoice" : "Quote"} Details</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <Label>Next {documentType === "invoice" ? "Invoice" : "Quote"} Number</Label>
-            <div className="bg-gray-100 border border-gray-200 rounded-md px-3 py-2 text-lg font-bold text-gray-800">
+            <div className="bg-gray-100 border border-gray-200 rounded-md px-2 py-1.5 text-sm font-bold text-gray-800">
               #{nextInvoiceNumber}
             </div>
           </div>
@@ -1102,9 +1053,9 @@ View full invoice: ${shareableLink}
         </div>
       </div>
 
-      <div className="mb-6">
-        <h2 className="text-xl font-semibold mb-4">Sheet Specifications</h2>
-        <div className="grid grid-cols-2 gap-4">
+      <div className="mb-4">
+        <h2 className="text-base font-semibold mb-2">Sheet Specifications</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <Label htmlFor="sheetSize">Sheet Size</Label>
             <Select
@@ -1246,10 +1197,10 @@ View full invoice: ${shareableLink}
         </div>
       </div>
 
-      <div className="mb-6">
-        <h2 className="text-xl font-semibold mb-4">Line Items</h2>
+      <div className="mb-4">
+        <h2 className="text-base font-semibold mb-2">Line Items</h2>
         {lineItems.map((item, index) => (
-          <div key={index} className="border border-gray-200 rounded-lg p-3 mb-3">
+          <div key={index} className="border border-gray-200 rounded-lg p-2 mb-2">
             <div className="flex items-end gap-2 mb-2">
               <div className="flex-grow">
                 <Label htmlFor={`description-${index}`}>Description</Label>
@@ -1399,9 +1350,9 @@ View full invoice: ${shareableLink}
         </Button>
       </div>
 
-      <div className="mb-6">
-        <h2 className="text-xl font-semibold mb-4">Additional Costs</h2>
-        <div className="grid grid-cols-2 gap-4">
+      <div className="mb-4">
+        <h2 className="text-base font-semibold mb-2">Additional Costs</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <Label htmlFor="formingCost">Forming Cost ($)</Label>
             <Input
@@ -1432,9 +1383,9 @@ View full invoice: ${shareableLink}
         </div>
       </div>
 
-      <div className="mb-6">
-        <h2 className="text-xl font-semibold mb-4">Plasma Cutting Costs</h2>
-        <div className="grid grid-cols-3 gap-4">
+      <div className="mb-4">
+        <h2 className="text-base font-semibold mb-2">Plasma Cutting Costs</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             <Label htmlFor="plasmaCuttingMinutes">Runtime</Label>
             <div className="flex gap-1">
@@ -1480,9 +1431,9 @@ View full invoice: ${shareableLink}
         </div>
       </div>
 
-      <div className="mb-6">
-        <h2 className="text-xl font-semibold mb-4">Labor Costs</h2>
-        <div className="grid grid-cols-3 gap-4">
+      <div className="mb-4">
+        <h2 className="text-base font-semibold mb-2">Labor Costs</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             <Label htmlFor="hourlyRate">Hourly Rate ($)</Label>
             <Input
@@ -1528,11 +1479,11 @@ View full invoice: ${shareableLink}
         </div>
       </div>
 
-      <div className="mb-6">
-        <h2 className="text-xl font-semibold mb-4">{documentType === "invoice" ? "Invoice" : "Quote"} Summary</h2>
-        <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-2">
-          <p className="text-lg">Material Cost: ${calculateMaterialCost().toFixed(2)}</p>
-          <p className="text-lg">
+      <div className="mb-4">
+        <h2 className="text-base font-semibold mb-2">{documentType === "invoice" ? "Invoice" : "Quote"} Summary</h2>
+        <div className="bg-white border border-gray-200 rounded-lg p-3 space-y-1">
+          <p className="text-sm">Material Cost: ${calculateMaterialCost().toFixed(2)}</p>
+          <p className="text-sm">
             Total Forming Cost: $
             {formingCostMethod === "perItem"
               ? lineItems
@@ -1545,20 +1496,20 @@ View full invoice: ${shareableLink}
               : (Number.parseFloat(formingCost) || 0).toFixed(2)}
           </p>
           {calculatePlasmaCuttingCost() > 0 && (
-            <p className="text-lg">Plasma Cutting Cost: ${calculatePlasmaCuttingCost().toFixed(2)}</p>
+            <p className="text-sm">Plasma Cutting Cost: ${calculatePlasmaCuttingCost().toFixed(2)}</p>
           )}
-          {calculateLaborCost() > 0 && <p className="text-lg">Labor Cost: ${calculateLaborCost().toFixed(2)}</p>}
-          <div className="border-t border-gray-300 pt-2 mt-2">
-            <p className="text-2xl font-bold">Total: ${calculateTotal()}</p>
+          {calculateLaborCost() > 0 && <p className="text-sm">Labor Cost: ${calculateLaborCost().toFixed(2)}</p>}
+          <div className="border-t border-gray-300 pt-1.5 mt-1.5">
+            <p className="text-lg font-bold">Total: ${calculateTotal()}</p>
           </div>
-          <div className="border-t-2 border-green-400 pt-3 mt-3 bg-green-50 rounded-lg p-4">
-            <p className="text-sm text-green-700 font-medium">For Your Eyes Only - Not Shown on Invoice</p>
-            <p className="text-2xl font-bold text-green-700">Net Profit: ${calculateNetProfit()}</p>
+          <div className="border-t-2 border-green-400 pt-2 mt-2 bg-green-50 rounded-lg p-3">
+            <p className="text-xs text-green-700 font-medium">For Your Eyes Only - Not Shown on Invoice</p>
+            <p className="text-lg font-bold text-green-700">Net Profit: ${calculateNetProfit()}</p>
           </div>
         </div>
       </div>
 
-      <div className="flex justify-end mb-6">
+      <div className="flex justify-end mb-4">
         <Button
           onClick={() => {
             console.log("Generate Invoice button clicked")
@@ -1571,37 +1522,33 @@ View full invoice: ${shareableLink}
       </div>
 
       {generatedInvoice && (
-        <div className="border-2 border-gray-300 rounded-lg bg-white mt-8 shadow-lg max-w-4xl mx-auto">
-          {/* Header Section */}
-          <div className="bg-gray-50 p-6 border-b border-gray-200">
-            <div className="flex justify-between items-start">
+        <div className="border-2 border-gray-300 rounded-lg bg-white mt-6 shadow-lg max-w-3xl mx-auto text-sm">
+          {/* Header */}
+          <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+            <div className="flex flex-col sm:flex-row justify-between items-start gap-3">
               <div>
-                <h1 className="text-4xl font-bold text-gray-800 mb-2">{generatedInvoice.companyInfo.name}</h1>
-                <div className="text-gray-600 space-y-1">
-                  <p className="flex items-center">
-                    <span className="font-medium">📍</span> {generatedInvoice.companyInfo.address}
-                  </p>
-                  <p className="flex items-center">
-                    <span className="font-medium">📞</span> {generatedInvoice.companyInfo.phone}
-                  </p>
+                <h1 className="text-lg sm:text-xl font-bold text-gray-800">{generatedInvoice.companyInfo.name}</h1>
+                <div className="text-gray-600 text-xs space-y-0.5 mt-1">
+                  <p>{generatedInvoice.companyInfo.address}</p>
+                  <p>{generatedInvoice.companyInfo.phone}</p>
                 </div>
               </div>
-              <div className="text-right">
-                <div className={`${generatedInvoice.documentType === "quote" ? "bg-blue-600" : "bg-green-600"} text-white px-3 py-1.5 rounded-md mb-3 inline-block`}>
-                  <h2 className="text-lg font-bold">{generatedInvoice.documentType === "quote" ? "QUOTE" : "INVOICE"}</h2>
+              <div className="text-right flex-shrink-0">
+                <div className={`${generatedInvoice.documentType === "quote" ? "bg-blue-600" : "bg-green-600"} text-white px-2.5 py-1 rounded-md mb-2 inline-block`}>
+                  <h2 className="text-sm font-bold">{generatedInvoice.documentType === "quote" ? "QUOTE" : "INVOICE"}</h2>
                 </div>
-                <div className={`border-2 ${generatedInvoice.documentType === "quote" ? "border-blue-300" : "border-green-300"} rounded-lg p-3 space-y-2`}>
-                  <div className="flex justify-between gap-4 text-sm">
+                <div className={`border-2 ${generatedInvoice.documentType === "quote" ? "border-blue-300" : "border-green-300"} rounded-md p-2 space-y-1`}>
+                  <div className="flex justify-between gap-3 text-xs">
                     <span className="font-bold text-gray-700">{generatedInvoice.documentType === "quote" ? "Quote" : "Invoice"} #:</span>
                     <span className="font-mono font-semibold text-gray-900">{generatedInvoice.invoiceNumber}</span>
                   </div>
                   <div className={`border-t ${generatedInvoice.documentType === "quote" ? "border-blue-200" : "border-green-200"}`} />
-                  <div className="flex justify-between gap-4 text-sm">
+                  <div className="flex justify-between gap-3 text-xs">
                     <span className="font-bold text-gray-700">Date:</span>
                     <span className="text-gray-900">{new Date(generatedInvoice.date).toLocaleDateString()}</span>
                   </div>
                   <div className={`border-t ${generatedInvoice.documentType === "quote" ? "border-blue-200" : "border-green-200"}`} />
-                  <div className="flex justify-between gap-4 text-sm">
+                  <div className="flex justify-between gap-3 text-xs">
                     <span className="font-bold text-gray-700">{generatedInvoice.documentType === "quote" ? "Valid Until:" : "Due Date:"}</span>
                     <span className="text-gray-900">{generatedInvoice.documentType === "quote"
                       ? new Date(new Date(generatedInvoice.date).getTime() + 24 * 60 * 60 * 1000).toLocaleDateString()
@@ -1612,65 +1559,41 @@ View full invoice: ${shareableLink}
             </div>
           </div>
 
-          {/* Customer Information */}
-          <div className="p-6 border-b border-gray-200">
-            <div className="grid grid-cols-1 gap-6">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-3 border-b border-gray-300 pb-1">Bill To:</h3>
-                <div className="space-y-2 text-gray-700">
-                  <p className="font-medium text-lg">{generatedInvoice.customerName}</p>
-                  {generatedInvoice.projectName && (
-                    <p>
-                      <span className="font-medium">Project:</span> {generatedInvoice.projectName}
-                    </p>
-                  )}
-                  {generatedInvoice.customerEmail && (
-                    <p>
-                      <span className="font-medium">Email:</span> {generatedInvoice.customerEmail}
-                    </p>
-                  )}
-                  {generatedInvoice.poNumber && (
-                    <p>
-                      <span className="font-medium">PO Number:</span> {generatedInvoice.poNumber}
-                    </p>
-                  )}
-                </div>
-              </div>
+          {/* Bill To */}
+          <div className="px-4 py-3 border-b border-gray-200">
+            <h3 className="text-sm font-semibold text-gray-800 mb-1 border-b border-gray-300 pb-0.5">Bill To:</h3>
+            <div className="space-y-0.5 text-gray-700 text-xs">
+              <p className="font-medium text-sm">{generatedInvoice.customerName}</p>
+              {generatedInvoice.projectName && <p><span className="font-medium">Project:</span> {generatedInvoice.projectName}</p>}
+              {generatedInvoice.customerEmail && <p><span className="font-medium">Email:</span> {generatedInvoice.customerEmail}</p>}
+              {generatedInvoice.poNumber && <p><span className="font-medium">PO #:</span> {generatedInvoice.poNumber}</p>}
             </div>
           </div>
 
-          {/* Line Items Table */}
-          <div className="p-6">
-            <h3 className="text-xl font-semibold text-gray-800 mb-4">Itemized {generatedInvoice.documentType === "quote" ? "Quote" : "Invoice"}</h3>
+          {/* Table */}
+          <div className="px-4 py-3">
+            <h3 className="text-sm font-semibold text-gray-800 mb-2">Itemized {generatedInvoice.documentType === "quote" ? "Quote" : "Invoice"}</h3>
             <div className="overflow-x-auto">
-              <table className="w-full border-collapse border border-gray-300">
+              <table className="w-full border-collapse border border-gray-300 text-xs">
                 <thead>
                   <tr className="bg-gray-100">
-                    <th className="border border-gray-300 px-3 py-4 text-left font-semibold text-gray-700 w-12">#</th>
-                    <th className="border border-gray-300 px-4 py-4 text-left font-semibold text-gray-700 min-w-[250px]">
-                      Description
-                    </th>
-                    <th className="border border-gray-300 px-4 py-4 text-center font-semibold text-gray-700 min-w-[150px]">
-                      Dimensions / Sq Ft
-                    </th>
-                    <th className="border border-gray-300 px-3 py-4 text-center font-semibold text-gray-700 w-20">
-                      Qty
-                    </th>
+                    <th className="border border-gray-300 px-2 py-2 text-left font-semibold text-gray-700 w-8">#</th>
+                    <th className="border border-gray-300 px-2 py-2 text-left font-semibold text-gray-700">Description</th>
+                    <th className="border border-gray-300 px-2 py-2 text-center font-semibold text-gray-700">Dimensions / Sq Ft</th>
+                    <th className="border border-gray-300 px-2 py-2 text-center font-semibold text-gray-700 w-12">Qty</th>
                   </tr>
                 </thead>
                 <tbody>
                   {generatedInvoice.lineItems.map((item: any, index: number) => (
                     <tr key={index} className="hover:bg-gray-50">
-                      <td className="border border-gray-300 px-3 py-4 text-center font-medium">{index + 1}</td>
-                      <td className="border border-gray-300 px-4 py-4 break-words">
-                        {item.description || "Custom Part"}
-                      </td>
-                      <td className="border border-gray-300 px-4 py-4 text-center whitespace-nowrap">
+                      <td className="border border-gray-300 px-2 py-1.5 text-center font-medium">{index + 1}</td>
+                      <td className="border border-gray-300 px-2 py-1.5 break-words">{item.description || "Custom Part"}</td>
+                      <td className="border border-gray-300 px-2 py-1.5 text-center whitespace-nowrap">
                         {item.inputMethod === "sqft"
                           ? `${item.sqft} sq ft`
-                          : `${item.length} ${item.lengthUnit} × ${item.width} ${item.widthUnit}`}
+                          : `${item.length} ${item.lengthUnit} x ${item.width} ${item.widthUnit}`}
                       </td>
-                      <td className="border border-gray-300 px-3 py-4 text-center">{item.quantity}</td>
+                      <td className="border border-gray-300 px-2 py-1.5 text-center">{item.quantity}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1678,26 +1601,24 @@ View full invoice: ${shareableLink}
             </div>
           </div>
 
-          {/* Total Section */}
-          <div className="px-6 pb-6">
+          {/* Total */}
+          <div className="px-4 pb-3">
             <div className="flex justify-end">
-              <div className="w-full max-w-lg">
-                <div className="bg-gray-900 text-white p-8 rounded-lg">
-                  <div className="flex justify-between items-center">
-                    <span className="text-2xl font-bold">TOTAL:</span>
-                    <span className="text-3xl font-bold font-mono">${generatedInvoice.total}</span>
-                  </div>
+              <div className="bg-gray-900 text-white px-5 py-3 rounded-md">
+                <div className="flex items-center gap-4">
+                  <span className="text-base font-bold">TOTAL:</span>
+                  <span className="text-lg font-bold font-mono">${generatedInvoice.total}</span>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Terms and Actions */}
-          <div className="bg-gray-50 p-6 border-t border-gray-200">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Terms + Actions */}
+          <div className="bg-gray-50 px-4 py-3 border-t border-gray-200">
+            <div className="flex flex-col sm:flex-row gap-4 justify-between">
               <div>
-                <h4 className="font-semibold text-gray-800 mb-2">{generatedInvoice.documentType === "quote" ? "Terms & Conditions:" : "Payment Terms:"}</h4>
-                <ul className="text-sm text-gray-600 space-y-1">
+                <h4 className="font-semibold text-gray-800 text-xs mb-1">{generatedInvoice.documentType === "quote" ? "Terms & Conditions:" : "Payment Terms:"}</h4>
+                <ul className="text-xs text-gray-600 space-y-0.5">
                   {generatedInvoice.documentType === "quote" ? (
                     <>
                       <li>This quote is valid for 24 hours from the date above</li>
@@ -1715,26 +1636,24 @@ View full invoice: ${shareableLink}
                   )}
                 </ul>
               </div>
-              <div className="flex flex-col justify-center">
-                <div className="flex justify-end space-x-4">
-                  <Button onClick={handleShare} className={`flex items-center ${generatedInvoice.documentType === "quote" ? "bg-blue-600 hover:bg-blue-700" : "bg-green-600 hover:bg-green-700"}`}>
-                    <Share2 className="mr-2 h-4 w-4" />
-                    Share {generatedInvoice.documentType === "quote" ? "Quote" : "Invoice"}
-                  </Button>
-                  <Button onClick={generatePDF} className="flex items-center bg-gray-800 hover:bg-gray-900">
-                    <Download className="mr-2 h-4 w-4" />
-                    Download PDF
-                  </Button>
-                </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <Button onClick={handleShare} size="sm" className={`flex items-center text-xs ${generatedInvoice.documentType === "quote" ? "bg-blue-600 hover:bg-blue-700" : "bg-green-600 hover:bg-green-700"}`}>
+                  <Share2 className="mr-1 h-3 w-3" />
+                  Share
+                </Button>
+                <Button onClick={generatePDF} size="sm" className="flex items-center text-xs bg-gray-800 hover:bg-gray-900">
+                  <Download className="mr-1 h-3 w-3" />
+                  Download PDF
+                </Button>
               </div>
             </div>
           </div>
 
           {/* Footer */}
-          <div className="bg-gray-800 text-white p-4 text-center text-sm rounded-b-lg">
+          <div className="bg-gray-800 text-white px-4 py-2 text-center text-xs rounded-b-lg">
             <p>Thank you for choosing {generatedInvoice.companyInfo.name}. We appreciate your business!</p>
-            <p className="mt-1 text-gray-300">
-              For questions about this invoice, please contact us at {generatedInvoice.companyInfo.phone}
+            <p className="mt-0.5 text-gray-300">
+              For questions, please contact us at {generatedInvoice.companyInfo.phone}
             </p>
           </div>
         </div>
@@ -1742,9 +1661,9 @@ View full invoice: ${shareableLink}
 
       {/* Saved Drafts Section */}
       {savedDrafts.length > 0 && (
-        <div className="mt-8">
-          <h2 className="text-2xl font-bold mb-4">Saved Drafts</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="mt-6">
+          <h2 className="text-lg font-bold mb-2">Saved Drafts</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {savedDrafts.map((draft) => (
               <div key={draft.id} className="border border-amber-200 bg-amber-50 p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow">
                 <div className="flex justify-between items-start mb-2">
