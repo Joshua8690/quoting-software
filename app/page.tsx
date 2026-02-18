@@ -69,6 +69,8 @@ export default function InvoicePage() {
   const [customerEmail, setCustomerEmail] = useState("")
   const [plasmaCuttingMinutes, setPlasmaCuttingMinutes] = useState("")
   const [plasmaCostPerMinute, setPlasmaCostPerMinute] = useState("")
+  const [plasmaTimeUnit, setPlasmaTimeUnit] = useState<"minutes" | "hours">("minutes")
+  const [laborTimeUnit, setLaborTimeUnit] = useState<"hours" | "minutes">("hours")
   const [nextInvoiceNumber, setNextInvoiceNumber] = useState("1")
   const [documentType, setDocumentType] = useState<"invoice" | "quote">("invoice")
 
@@ -154,6 +156,8 @@ export default function InvoicePage() {
     setCustomerEmail("")
     setPlasmaCuttingMinutes("")
     setPlasmaCostPerMinute("")
+    setPlasmaTimeUnit("minutes")
+    setLaborTimeUnit("hours")
   }
 
   const saveDraft = () => {
@@ -176,6 +180,9 @@ export default function InvoicePage() {
       customerEmail,
       plasmaCuttingMinutes,
       plasmaCostPerMinute,
+      plasmaTimeUnit,
+      laborTimeUnit,
+      documentType,
       savedAt: new Date().toISOString(),
       label: `${customerName || "Untitled"} - ${projectName || "No Project"}`,
     }
@@ -203,6 +210,9 @@ export default function InvoicePage() {
     setCustomerEmail(draft.customerEmail || "")
     setPlasmaCuttingMinutes(draft.plasmaCuttingMinutes || "")
     setPlasmaCostPerMinute(draft.plasmaCostPerMinute || "")
+    setPlasmaTimeUnit(draft.plasmaTimeUnit || "minutes")
+    setLaborTimeUnit(draft.laborTimeUnit || "hours")
+    setDocumentType(draft.documentType || "invoice")
     setGeneratedInvoice(null)
     toast.success("Draft loaded! You can now edit and generate the invoice.")
   }
@@ -243,6 +253,9 @@ export default function InvoicePage() {
     setCustomerEmail(invoice.customerEmail || "")
     setPlasmaCuttingMinutes(invoice.plasmaCuttingMinutes || "")
     setPlasmaCostPerMinute(invoice.plasmaCostPerMinute || "")
+    setPlasmaTimeUnit(invoice.plasmaTimeUnit || "minutes")
+    setLaborTimeUnit(invoice.laborTimeUnit || "hours")
+    setDocumentType(invoice.documentType || "invoice")
     setGeneratedInvoice(null)
     window.scrollTo({ top: 0, behavior: "smooth" })
     toast.success("Invoice loaded for editing! Make your changes and generate a new invoice.")
@@ -323,9 +336,10 @@ export default function InvoicePage() {
   }
 
   const calculatePlasmaCuttingCost = () => {
-    const minutes = Number.parseFloat(plasmaCuttingMinutes) || 0
-    const costPerMinute = Number.parseFloat(plasmaCostPerMinute) || 0
-    return minutes * costPerMinute
+    const timeValue = Number.parseFloat(plasmaCuttingMinutes) || 0
+    const costPerUnit = Number.parseFloat(plasmaCostPerMinute) || 0
+    const minutes = plasmaTimeUnit === "hours" ? timeValue * 60 : timeValue
+    return minutes * costPerUnit
   }
 
   const calculateTotal = () => {
@@ -360,8 +374,10 @@ export default function InvoicePage() {
 
   const calculateLaborCost = () => {
     const rate = Number.parseFloat(hourlyRate)
-    const hours = Number.parseFloat(hoursWorked)
-    return !isNaN(rate) && !isNaN(hours) ? rate * hours : 0
+    const timeValue = Number.parseFloat(hoursWorked)
+    if (isNaN(rate) || isNaN(timeValue)) return 0
+    const hours = laborTimeUnit === "minutes" ? timeValue / 60 : timeValue
+    return rate * hours
   }
 
   const generateInvoice = () => {
@@ -441,6 +457,8 @@ export default function InvoicePage() {
         hoursWorked,
         plasmaCuttingMinutes,
         plasmaCostPerMinute,
+        plasmaTimeUnit,
+        laborTimeUnit,
       }
 
       // Enhanced console logging
@@ -620,18 +638,51 @@ View full invoice: ${shareableLink}
       doc.setFont("helvetica", "bold")
       doc.text(docLabel, isQuote ? 165 : 163, 18)
 
-      // Document details (right side, below badge)
-      doc.setTextColor(75, 85, 99)
-      doc.setFontSize(8)
-      doc.setFont("helvetica", "bold")
-      doc.text(`${isQuote ? "Quote" : "Invoice"} #:`, 148, 30)
-      doc.text("Date:", 148, 37)
-      doc.text("Due Date:", 148, 44)
+      // Document details box (right side, below badge) - bordered title block
+      const detailBoxX = 140
+      const detailBoxY = 24
+      const detailBoxW = 56
+      const detailBoxH = 28
+      if (isQuote) {
+        doc.setDrawColor(147, 197, 253) // blue-300
+      } else {
+        doc.setDrawColor(134, 239, 172) // green-300
+      }
+      doc.setLineWidth(0.8)
+      doc.roundedRect(detailBoxX, detailBoxY, detailBoxW, detailBoxH, 2, 2, "S")
 
+      doc.setTextColor(55, 65, 81)
+      doc.setFontSize(7)
+      doc.setFont("helvetica", "bold")
+      doc.text(`${isQuote ? "Quote" : "Invoice"} #:`, detailBoxX + 3, detailBoxY + 6)
       doc.setFont("helvetica", "normal")
-      doc.text(generatedInvoice.invoiceNumber, 175, 30)
-      doc.text(new Date(generatedInvoice.date).toLocaleDateString(), 175, 37)
-      doc.text(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString(), 175, 44)
+      doc.text(generatedInvoice.invoiceNumber, detailBoxX + detailBoxW - 3, detailBoxY + 6, { align: "right" })
+
+      // Divider
+      if (isQuote) {
+        doc.setDrawColor(191, 219, 254) // blue-200
+      } else {
+        doc.setDrawColor(187, 247, 208) // green-200
+      }
+      doc.setLineWidth(0.3)
+      doc.line(detailBoxX + 2, detailBoxY + 9, detailBoxX + detailBoxW - 2, detailBoxY + 9)
+
+      doc.setFont("helvetica", "bold")
+      doc.text("Date:", detailBoxX + 3, detailBoxY + 15)
+      doc.setFont("helvetica", "normal")
+      doc.text(new Date(generatedInvoice.date).toLocaleDateString(), detailBoxX + detailBoxW - 3, detailBoxY + 15, { align: "right" })
+
+      // Divider
+      doc.line(detailBoxX + 2, detailBoxY + 18, detailBoxX + detailBoxW - 2, detailBoxY + 18)
+
+      const dueDateLabel = isQuote ? "Valid Until:" : "Due Date:"
+      const dueDate = isQuote
+        ? new Date(new Date(generatedInvoice.date).getTime() + 24 * 60 * 60 * 1000).toLocaleDateString()
+        : new Date(new Date(generatedInvoice.date).getTime() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()
+      doc.setFont("helvetica", "bold")
+      doc.text(dueDateLabel, detailBoxX + 3, detailBoxY + 24)
+      doc.setFont("helvetica", "normal")
+      doc.text(dueDate, detailBoxX + detailBoxW - 3, detailBoxY + 24, { align: "right" })
 
       // ===== BILL TO SECTION =====
       let yPos = 65
@@ -782,7 +833,7 @@ View full invoice: ${shareableLink}
       doc.setTextColor(75, 85, 99)
       const terms = isQuote
         ? [
-            "This quote is valid for 30 days from the date above",
+            "This quote is valid for 24 hours from the date above",
             "Prices are subject to change after expiration",
             `Please reference quote #${generatedInvoice.invoiceNumber} when placing order`,
             "Thank you for your interest!",
@@ -1326,21 +1377,33 @@ View full invoice: ${shareableLink}
 
       <div className="mb-6">
         <h2 className="text-xl font-semibold mb-4">Plasma Cutting Costs</h2>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           <div>
-            <Label htmlFor="plasmaCuttingMinutes">Runtime (Minutes)</Label>
-            <Input
-              id="plasmaCuttingMinutes"
-              type="number"
-              value={plasmaCuttingMinutes}
-              onChange={(e) => setPlasmaCuttingMinutes(e.target.value)}
-              min="0"
-              step="0.1"
-              placeholder="0.0"
-            />
+            <Label htmlFor="plasmaCuttingMinutes">Runtime</Label>
+            <div className="flex gap-1">
+              <Input
+                id="plasmaCuttingMinutes"
+                type="number"
+                value={plasmaCuttingMinutes}
+                onChange={(e) => setPlasmaCuttingMinutes(e.target.value)}
+                min="0"
+                step="0.1"
+                placeholder="0.0"
+                className="flex-1"
+              />
+              <Select value={plasmaTimeUnit} onValueChange={(v) => setPlasmaTimeUnit(v as "minutes" | "hours")}>
+                <SelectTrigger className="w-24">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="minutes">Min</SelectItem>
+                  <SelectItem value="hours">Hrs</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div>
-            <Label htmlFor="plasmaCostPerMinute">Cost per Minute ($)</Label>
+            <Label htmlFor="plasmaCostPerMinute">Cost per {plasmaTimeUnit === "hours" ? "Hour" : "Minute"} ($)</Label>
             <Input
               id="plasmaCostPerMinute"
               type="number"
@@ -1351,12 +1414,18 @@ View full invoice: ${shareableLink}
               placeholder="0.00"
             />
           </div>
+          <div>
+            <Label>Plasma Total</Label>
+            <div className="bg-gray-100 border border-gray-200 rounded-md px-3 py-2 text-sm font-medium text-gray-700">
+              ${calculatePlasmaCuttingCost().toFixed(2)}
+            </div>
+          </div>
         </div>
       </div>
 
       <div className="mb-6">
         <h2 className="text-xl font-semibold mb-4">Labor Costs</h2>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           <div>
             <Label htmlFor="hourlyRate">Hourly Rate ($)</Label>
             <Input
@@ -1370,16 +1439,34 @@ View full invoice: ${shareableLink}
             />
           </div>
           <div>
-            <Label htmlFor="hoursWorked">Hours Worked</Label>
-            <Input
-              id="hoursWorked"
-              type="number"
-              value={hoursWorked}
-              onChange={(e) => setHoursWorked(e.target.value)}
-              min="0"
-              step="0.1"
-              placeholder="0.0"
-            />
+            <Label htmlFor="hoursWorked">Time Worked</Label>
+            <div className="flex gap-1">
+              <Input
+                id="hoursWorked"
+                type="number"
+                value={hoursWorked}
+                onChange={(e) => setHoursWorked(e.target.value)}
+                min="0"
+                step="0.1"
+                placeholder="0.0"
+                className="flex-1"
+              />
+              <Select value={laborTimeUnit} onValueChange={(v) => setLaborTimeUnit(v as "hours" | "minutes")}>
+                <SelectTrigger className="w-24">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="hours">Hrs</SelectItem>
+                  <SelectItem value="minutes">Min</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div>
+            <Label>Labor Total</Label>
+            <div className="bg-gray-100 border border-gray-200 rounded-md px-3 py-2 text-sm font-medium text-gray-700">
+              ${calculateLaborCost().toFixed(2)}
+            </div>
           </div>
         </div>
       </div>
@@ -1446,17 +1533,23 @@ View full invoice: ${shareableLink}
                 <div className={`${generatedInvoice.documentType === "quote" ? "bg-blue-600" : "bg-green-600"} text-white px-3 py-1.5 rounded-md mb-3 inline-block`}>
                   <h2 className="text-lg font-bold">{generatedInvoice.documentType === "quote" ? "QUOTE" : "INVOICE"}</h2>
                 </div>
-                <div className="text-sm text-gray-600 space-y-1">
-                  <p>
-                    <span className="font-medium">{generatedInvoice.documentType === "quote" ? "Quote" : "Invoice"} #:</span> {generatedInvoice.invoiceNumber}
-                  </p>
-                  <p>
-                    <span className="font-medium">Date:</span> {new Date(generatedInvoice.date).toLocaleDateString()}
-                  </p>
-                  <p>
-                    <span className="font-medium">Due Date:</span>{" "}
-                    {new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}
-                  </p>
+                <div className={`border-2 ${generatedInvoice.documentType === "quote" ? "border-blue-300" : "border-green-300"} rounded-lg p-3 space-y-2`}>
+                  <div className="flex justify-between gap-4 text-sm">
+                    <span className="font-bold text-gray-700">{generatedInvoice.documentType === "quote" ? "Quote" : "Invoice"} #:</span>
+                    <span className="font-mono font-semibold text-gray-900">{generatedInvoice.invoiceNumber}</span>
+                  </div>
+                  <div className={`border-t ${generatedInvoice.documentType === "quote" ? "border-blue-200" : "border-green-200"}`} />
+                  <div className="flex justify-between gap-4 text-sm">
+                    <span className="font-bold text-gray-700">Date:</span>
+                    <span className="text-gray-900">{new Date(generatedInvoice.date).toLocaleDateString()}</span>
+                  </div>
+                  <div className={`border-t ${generatedInvoice.documentType === "quote" ? "border-blue-200" : "border-green-200"}`} />
+                  <div className="flex justify-between gap-4 text-sm">
+                    <span className="font-bold text-gray-700">{generatedInvoice.documentType === "quote" ? "Valid Until:" : "Due Date:"}</span>
+                    <span className="text-gray-900">{generatedInvoice.documentType === "quote"
+                      ? new Date(new Date(generatedInvoice.date).getTime() + 24 * 60 * 60 * 1000).toLocaleDateString()
+                      : new Date(new Date(generatedInvoice.date).getTime() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1550,7 +1643,7 @@ View full invoice: ${shareableLink}
                 <ul className="text-sm text-gray-600 space-y-1">
                   {generatedInvoice.documentType === "quote" ? (
                     <>
-                      <li>This quote is valid for 30 days from the date above</li>
+                      <li>This quote is valid for 24 hours from the date above</li>
                       <li>Prices are subject to change after expiration</li>
                       <li>Please reference quote #{generatedInvoice.invoiceNumber} when placing order</li>
                       <li>Thank you for your interest!</li>
