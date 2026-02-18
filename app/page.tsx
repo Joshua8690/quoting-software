@@ -268,6 +268,62 @@ export default function InvoicePage() {
     toast.success("Invoice deleted.")
   }
 
+  const fillDemoData = () => {
+    setCustomerName("John Smith")
+    setProjectName("Barn Steel Panels")
+    setCustomerEmail("johnsmith@email.com")
+    setPoNumber("PO-2026-001")
+    setSheetCost("125.00")
+    setMarkupPercentage("30")
+    setMaterialType("Mild Steel")
+    setSheetSize({ length: 5, width: 10, unit: "feet" })
+    setFormingCost("15")
+    setFormingCostMethod("perItem")
+    setHourlyRate("75")
+    setHoursWorked("2.5")
+    setLaborTimeUnit("hours")
+    setPlasmaCuttingMinutes("45")
+    setPlasmaCostPerMinute("1.25")
+    setPlasmaTimeUnit("minutes")
+    setLineItems([
+      {
+        description: "Side Panel - Left",
+        length: "48",
+        width: "24",
+        quantity: "4",
+        quantityType: "dropdown",
+        lengthUnit: "inches",
+        widthUnit: "inches",
+        sqft: "",
+        inputMethod: "dimensions",
+      },
+      {
+        description: "Top Cover Plate",
+        length: "36",
+        width: "18",
+        quantity: "2",
+        quantityType: "dropdown",
+        lengthUnit: "inches",
+        widthUnit: "inches",
+        sqft: "",
+        inputMethod: "dimensions",
+      },
+      {
+        description: "Floor Base",
+        length: "",
+        width: "",
+        quantity: "1",
+        quantityType: "dropdown",
+        lengthUnit: "inches",
+        widthUnit: "inches",
+        sqft: "12",
+        inputMethod: "sqft",
+      },
+    ])
+    setGeneratedInvoice(null)
+    toast.success("Demo data loaded! Hit Generate to preview.")
+  }
+
   useEffect(() => {
     if (generatedInvoice) {
       console.log("Generated invoice updated:", generatedInvoice)
@@ -889,6 +945,7 @@ View full invoice: ${shareableLink}
           <TimestampClock />
         </div>
         <div className="flex gap-2">
+          <Button onClick={fillDemoData} variant="outline" className="border-amber-300 text-amber-700 hover:bg-amber-50">Demo</Button>
           <Button onClick={saveDraft} variant="outline">Save Draft</Button>
           <Button onClick={clearInvoice}>New {documentType === "invoice" ? "Invoice" : "Quote"}</Button>
         </div>
