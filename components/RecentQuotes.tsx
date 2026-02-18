@@ -1,6 +1,10 @@
+"use client"
+
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Trash2, Pencil } from "lucide-react"
+import { Trash2, Pencil, Search } from "lucide-react"
 
 interface Invoice {
   id: number
@@ -45,20 +49,43 @@ interface RecentQuotesProps {
 }
 
 export function RecentQuotes({ quotes, onEdit, onDelete }: RecentQuotesProps) {
-  if (!quotes || quotes.length === 0) {
+  const [searchQuery, setSearchQuery] = useState("")
+
+  const filteredQuotes = quotes.filter((invoice) => {
+    if (!searchQuery.trim()) return true
+    const query = searchQuery.toLowerCase()
     return (
-      <div className="mt-8">
-        <h2 className="text-2xl font-bold mb-4">Saved Invoices</h2>
-        <p className="text-gray-500">No saved invoices found. Generate an invoice to see it here.</p>
-      </div>
+      invoice.customerName?.toLowerCase().includes(query) ||
+      invoice.invoiceNumber?.toLowerCase().includes(query) ||
+      invoice.projectName?.toLowerCase().includes(query) ||
+      invoice.poNumber?.toLowerCase().includes(query)
     )
-  }
+  })
 
   return (
     <div className="mt-8">
       <h2 className="text-2xl font-bold mb-4">Saved Invoices</h2>
+
+      {/* Search Bar */}
+      <div className="relative mb-4">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <Input
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search by customer name, invoice #, project, or PO..."
+          className="pl-10"
+        />
+      </div>
+
+      {filteredQuotes.length === 0 ? (
+        <p className="text-gray-500">
+          {quotes.length === 0
+            ? "No saved invoices found. Generate an invoice to see it here."
+            : `No invoices found matching "${searchQuery}".`}
+        </p>
+      ) : (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {quotes.map((invoice) => (
+        {filteredQuotes.map((invoice) => (
           <div key={invoice.id} className="border border-gray-200 p-4 rounded-lg shadow-sm bg-white hover:shadow-md transition-shadow">
             <div className="flex justify-between items-start mb-2">
               <h3 className="font-semibold text-gray-800">{invoice.customerName}</h3>
@@ -156,6 +183,7 @@ export function RecentQuotes({ quotes, onEdit, onDelete }: RecentQuotesProps) {
           </div>
         ))}
       </div>
+      )}
     </div>
   )
 }

@@ -69,6 +69,7 @@ export default function InvoicePage() {
   const [customerEmail, setCustomerEmail] = useState("")
   const [plasmaCuttingMinutes, setPlasmaCuttingMinutes] = useState("")
   const [plasmaCostPerMinute, setPlasmaCostPerMinute] = useState("")
+  const [nextInvoiceNumber, setNextInvoiceNumber] = useState("1")
 
   const [savedDrafts, setSavedDrafts] = useState<any[]>([])
 
@@ -93,6 +94,9 @@ export default function InvoicePage() {
 
       const drafts = localStorage.getItem("savedDrafts")
       if (drafts) setSavedDrafts(JSON.parse(drafts))
+
+      const storedCounter = localStorage.getItem("invoiceCounter")
+      setNextInvoiceNumber(storedCounter ? (Number.parseInt(storedCounter) + 1).toString() : "1")
     }
 
     loadSavedData()
@@ -115,6 +119,7 @@ export default function InvoicePage() {
     const storedCounter = localStorage.getItem("invoiceCounter")
     const currentCounter = storedCounter ? Number.parseInt(storedCounter) + 1 : 1
     localStorage.setItem("invoiceCounter", currentCounter.toString())
+    setNextInvoiceNumber((currentCounter + 1).toString())
     return currentCounter.toString()
   }
 
@@ -426,6 +431,14 @@ export default function InvoicePage() {
         poNumber: poNumber || undefined,
         date: new Date().toISOString(),
         customerEmail,
+        // Save full form data for editing later
+        sheetCost,
+        markupPercentage,
+        customSheetSize,
+        hourlyRate,
+        hoursWorked,
+        plasmaCuttingMinutes,
+        plasmaCostPerMinute,
       }
 
       // Enhanced console logging
@@ -859,6 +872,12 @@ View full invoice: ${shareableLink}
       <div className="mb-6">
         <h2 className="text-xl font-semibold mb-4">Invoice Details</h2>
         <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label>Next Invoice Number</Label>
+            <div className="bg-gray-100 border border-gray-200 rounded-md px-3 py-2 text-lg font-bold text-gray-800">
+              #{nextInvoiceNumber}
+            </div>
+          </div>
           <div>
             <Label htmlFor="poNumber">PO Number</Label>
             <Select value={poNumber} onValueChange={setPoNumber}>
