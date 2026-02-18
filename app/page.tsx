@@ -580,188 +580,238 @@ View full invoice: ${shareableLink}
   const generatePDF = () => {
     if (generatedInvoice) {
       const doc = new jsPDF()
+      const pageWidth = 210
+      const margin = 15
+      const contentWidth = pageWidth - margin * 2
 
-      // Set up colors and fonts
-      const primaryColor = [0, 112, 243] // Blue
-      const darkGray = [64, 64, 64]
-      const lightGray = [128, 128, 128]
+      // ===== HEADER SECTION (matches on-screen gray header) =====
+      doc.setFillColor(249, 250, 251) // bg-gray-50
+      doc.rect(0, 0, pageWidth, 55, "F")
+      doc.setDrawColor(229, 231, 235) // border-gray-200
+      doc.setLineWidth(0.5)
+      doc.line(0, 55, pageWidth, 55)
 
-      // Header Section
-      doc.setFillColor(...primaryColor)
-      doc.rect(0, 0, 210, 40, "F")
+      // Company Name (left side)
+      doc.setTextColor(31, 41, 55) // text-gray-800
+      doc.setFontSize(20)
+      doc.setFont("helvetica", "bold")
+      doc.text(generatedInvoice.companyInfo.name, margin, 18)
 
-      // Company Name
+      // Company address & phone
+      doc.setTextColor(75, 85, 99) // text-gray-600
+      doc.setFontSize(9)
+      doc.setFont("helvetica", "normal")
+      doc.text(generatedInvoice.companyInfo.address, margin, 28)
+      doc.text(generatedInvoice.companyInfo.phone, margin, 35)
+
+      // INVOICE badge (right side) - blue box
+      doc.setFillColor(37, 99, 235) // bg-blue-600
+      doc.roundedRect(155, 8, 42, 14, 2, 2, "F")
       doc.setTextColor(255, 255, 255)
-      doc.setFontSize(24)
+      doc.setFontSize(14)
       doc.setFont("helvetica", "bold")
-      doc.text(generatedInvoice.companyInfo.name, 20, 25)
+      doc.text("INVOICE", 164, 18)
 
-      // Invoice Title
-      doc.setFontSize(16)
-      doc.text("INVOICE", 170, 25)
+      // Invoice details (right side, below badge)
+      doc.setTextColor(75, 85, 99)
+      doc.setFontSize(8)
+      doc.setFont("helvetica", "bold")
+      doc.text("Invoice #:", 148, 30)
+      doc.text("Date:", 148, 37)
+      doc.text("Due Date:", 148, 44)
 
-      // Company Details
-      doc.setTextColor(...darkGray)
-      doc.setFontSize(10)
       doc.setFont("helvetica", "normal")
-      doc.text(generatedInvoice.companyInfo.address, 20, 50)
-      doc.text(generatedInvoice.companyInfo.phone, 20, 58)
+      doc.text(generatedInvoice.invoiceNumber, 175, 30)
+      doc.text(new Date(generatedInvoice.date).toLocaleDateString(), 175, 37)
+      doc.text(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString(), 175, 44)
 
-      // Invoice Details (Right side)
-      doc.setFont("helvetica", "bold")
+      // ===== BILL TO SECTION =====
+      let yPos = 65
+
+      // "Bill To:" header with underline
+      doc.setTextColor(31, 41, 55)
       doc.setFontSize(12)
-      doc.text("Invoice #:", 140, 50)
-      doc.text("Date:", 140, 58)
-      doc.text("Due Date:", 140, 66)
-
-      doc.setFont("helvetica", "normal")
-      doc.setFontSize(10)
-      doc.text(generatedInvoice.invoiceNumber, 165, 50)
-      doc.text(new Date(generatedInvoice.date).toLocaleDateString(), 165, 58)
-      doc.text(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString(), 165, 66)
-
-      // Customer Information
       doc.setFont("helvetica", "bold")
-      doc.setFontSize(12)
-      doc.text("Bill To:", 20, 85)
+      doc.text("Bill To:", margin, yPos)
+      doc.setDrawColor(209, 213, 219) // border-gray-300
+      doc.setLineWidth(0.3)
+      doc.line(margin, yPos + 2, margin + 30, yPos + 2)
+      yPos += 12
 
+      // Customer name
+      doc.setTextColor(55, 65, 81) // text-gray-700
+      doc.setFontSize(11)
+      doc.setFont("helvetica", "bold")
+      doc.text(generatedInvoice.customerName, margin, yPos)
+      yPos += 7
+
+      doc.setFontSize(9)
       doc.setFont("helvetica", "normal")
-      doc.setFontSize(10)
-      let customerYPos = 95
-      doc.text(generatedInvoice.customerName, 20, customerYPos)
-      customerYPos += 8
 
-      // Only show project if it exists
       if (generatedInvoice.projectName && generatedInvoice.projectName.trim()) {
-        doc.text(`Project: ${generatedInvoice.projectName}`, 20, customerYPos)
-        customerYPos += 8
+        doc.setFont("helvetica", "bold")
+        doc.text("Project: ", margin, yPos)
+        doc.setFont("helvetica", "normal")
+        doc.text(generatedInvoice.projectName, margin + 18, yPos)
+        yPos += 6
       }
 
       if (generatedInvoice.customerEmail) {
-        doc.text(`Email: ${generatedInvoice.customerEmail}`, 20, customerYPos)
-        customerYPos += 8
+        doc.setFont("helvetica", "bold")
+        doc.text("Email: ", margin, yPos)
+        doc.setFont("helvetica", "normal")
+        doc.text(generatedInvoice.customerEmail, margin + 14, yPos)
+        yPos += 6
       }
+
       if (generatedInvoice.poNumber) {
-        doc.text(`PO Number: ${generatedInvoice.poNumber}`, 20, customerYPos)
-        customerYPos += 8
+        doc.setFont("helvetica", "bold")
+        doc.text("PO Number: ", margin, yPos)
+        doc.setFont("helvetica", "normal")
+        doc.text(generatedInvoice.poNumber, margin + 24, yPos)
+        yPos += 6
       }
 
-      // Line Items Table (start after customer info)
-      let yPos = Math.max(customerYPos + 20, 140)
+      // Divider line
+      yPos += 5
+      doc.setDrawColor(229, 231, 235)
+      doc.setLineWidth(0.5)
+      doc.line(margin, yPos, pageWidth - margin, yPos)
+      yPos += 10
 
-      // Table Header
-      doc.setFillColor(240, 240, 240)
-      doc.rect(20, yPos - 8, 170, 12, "F")
-
+      // ===== ITEMIZED INVOICE TABLE =====
+      doc.setTextColor(31, 41, 55)
+      doc.setFontSize(13)
       doc.setFont("helvetica", "bold")
+      doc.text("Itemized Invoice", margin, yPos)
+      yPos += 8
+
+      // Table header
+      const colX = { num: margin, desc: margin + 12, dim: 120, qty: 175 }
+      doc.setFillColor(243, 244, 246) // bg-gray-100
+      doc.rect(margin, yPos - 5, contentWidth, 12, "F")
+
+      // Header borders
+      doc.setDrawColor(209, 213, 219)
+      doc.setLineWidth(0.3)
+      doc.rect(margin, yPos - 5, contentWidth, 12, "S")
+
       doc.setFontSize(9)
-      doc.text("#", 25, yPos)
-      doc.text("Description", 35, yPos)
-      doc.text("Dimensions", 110, yPos)
-      doc.text("Qty", 160, yPos)
+      doc.setFont("helvetica", "bold")
+      doc.setTextColor(55, 65, 81)
+      doc.text("#", colX.num + 2, yPos + 2)
+      doc.text("Description", colX.desc + 2, yPos + 2)
+      doc.text("Dimensions / Sq Ft", colX.dim, yPos + 2)
+      doc.text("Qty", colX.qty + 2, yPos + 2)
 
-      // Table Lines
-      doc.setDrawColor(...lightGray)
-      doc.line(20, yPos + 2, 190, yPos + 2)
+      yPos += 12
 
-      yPos += 15
-
-      // Line Items
+      // Table rows
       doc.setFont("helvetica", "normal")
-      doc.setFontSize(8)
+      doc.setFontSize(9)
+      doc.setTextColor(31, 41, 55)
 
       generatedInvoice.lineItems.forEach((item: any, index: number) => {
-        doc.text((index + 1).toString(), 25, yPos)
-        doc.text(item.description || "Custom Part", 35, yPos)
+        const rowHeight = 12
+        // Row border
+        doc.setDrawColor(209, 213, 219)
+        doc.rect(margin, yPos - 5, contentWidth, rowHeight, "S")
+
+        doc.text((index + 1).toString(), colX.num + 4, yPos + 2)
+        doc.text(item.description || "Custom Part", colX.desc + 2, yPos + 2)
         const dimText = item.inputMethod === "sqft"
           ? `${item.sqft} sq ft`
-          : `${item.length} ${item.lengthUnit} × ${item.width} ${item.widthUnit}`
-        doc.text(dimText, 110, yPos)
-        doc.text(item.quantity, 160, yPos)
+          : `${item.length} ${item.lengthUnit} x ${item.width} ${item.widthUnit}`
+        doc.text(dimText, colX.dim, yPos + 2)
+        doc.text(item.quantity, colX.qty + 5, yPos + 2)
 
-        yPos += 10
+        yPos += rowHeight
 
-        // Add new page if needed
         if (yPos > 250) {
           doc.addPage()
           yPos = 30
         }
       })
 
-      // Table bottom line
-      doc.line(20, yPos, 190, yPos)
-      yPos += 20
+      yPos += 15
 
-      // Total Section - Simple and clean
-      yPos += 10
+      // ===== TOTAL SECTION (dark box, matches on-screen) =====
+      const totalBoxHeight = 24
+      const totalBoxWidth = contentWidth * 0.55
+      const totalBoxX = pageWidth - margin - totalBoxWidth
 
-      // Draw main border with dark styling
-      doc.setFillColor(45, 55, 72) // Dark blue-gray background
-      doc.rect(20, yPos, 170, 40, "F")
+      doc.setFillColor(17, 24, 39) // bg-gray-900
+      doc.roundedRect(totalBoxX, yPos, totalBoxWidth, totalBoxHeight, 3, 3, "F")
 
-      // Draw border outline
-      doc.setDrawColor(30, 41, 59) // Even darker border
-      doc.setLineWidth(2)
-      doc.rect(20, yPos, 170, 40, "S")
-
-      // Total
-      doc.setTextColor(255, 255, 255) // White text
+      doc.setTextColor(255, 255, 255)
       doc.setFont("helvetica", "bold")
-      doc.setFontSize(18)
-      doc.text("TOTAL:", 30, yPos + 25)
-      doc.text(`$${generatedInvoice.total}`, 190, yPos + 25, { align: "right" })
+      doc.setFontSize(16)
+      doc.text("TOTAL:", totalBoxX + 10, yPos + 16)
+      doc.text(`$${generatedInvoice.total}`, totalBoxX + totalBoxWidth - 10, yPos + 16, { align: "right" })
 
-      // Update yPos to continue after the box
-      yPos = yPos + 40 + 20
+      yPos += totalBoxHeight + 20
 
-      // Payment Terms with border
-      yPos += 25
+      // ===== PAYMENT TERMS (matches on-screen) =====
+      // Check if we need a new page
+      if (yPos > 230) {
+        doc.addPage()
+        yPos = 30
+      }
+
+      // Gray background for terms section
+      doc.setFillColor(249, 250, 251)
+      doc.rect(margin, yPos - 5, contentWidth, 45, "F")
+      doc.setDrawColor(229, 231, 235)
+      doc.rect(margin, yPos - 5, contentWidth, 45, "S")
+
+      doc.setTextColor(31, 41, 55)
+      doc.setFontSize(10)
       doc.setFont("helvetica", "bold")
-      doc.setFontSize(12)
-      doc.text("Payment Terms:", 20, yPos)
-
-      // Draw border around payment terms
-      doc.setDrawColor(...lightGray)
-      doc.rect(20, yPos + 5, 170, 35, "S")
+      doc.text("Payment Terms:", margin + 5, yPos + 3)
 
       doc.setFont("helvetica", "normal")
-      doc.setFontSize(9)
-      yPos += 15
+      doc.setFontSize(8)
+      doc.setTextColor(75, 85, 99)
       const terms = [
-        "• Net 30 days from invoice date",
-        "• 2% discount if paid within 10 days",
-        "• 1.5% monthly service charge on overdue accounts",
-        "• All work performed and materials furnished according to specifications",
-        "• Thank you for your business!",
+        "Payment due within 30 days of invoice date",
+        "Late payments subject to 1.5% monthly service charge",
+        "Please include invoice number with payment",
+        "Thank you for your business!",
       ]
-
-      terms.forEach((term) => {
-        doc.text(term, 25, yPos)
-        yPos += 6
+      terms.forEach((term, i) => {
+        doc.text(`\u2022  ${term}`, margin + 8, yPos + 12 + i * 6)
       })
 
-      // Footer
-      yPos += 15
-      doc.setFillColor(...darkGray)
-      doc.rect(0, yPos, 210, 25, "F")
+      yPos += 55
+
+      // ===== FOOTER (dark bar, matches on-screen) =====
+      if (yPos > 260) {
+        doc.addPage()
+        yPos = 260
+      }
+      const footerY = Math.max(yPos, 270)
+      doc.setFillColor(31, 41, 55) // bg-gray-800
+      doc.rect(0, footerY, pageWidth, 27, "F")
 
       doc.setTextColor(255, 255, 255)
       doc.setFont("helvetica", "normal")
-      doc.setFontSize(9)
+      doc.setFontSize(8)
       doc.text(
         `Thank you for choosing ${generatedInvoice.companyInfo.name}. We appreciate your business!`,
-        20,
-        yPos + 10,
+        pageWidth / 2,
+        footerY + 10,
+        { align: "center" },
       )
+      doc.setTextColor(209, 213, 219) // text-gray-300
       doc.text(
         `For questions about this invoice, please contact us at ${generatedInvoice.companyInfo.phone}`,
-        20,
-        yPos + 18,
+        pageWidth / 2,
+        footerY + 18,
+        { align: "center" },
       )
 
-      // Save the PDF
       doc.save(`Invoice_${generatedInvoice.invoiceNumber}.pdf`)
-      toast.success("Professional invoice PDF generated and downloaded!")
+      toast.success("Invoice PDF downloaded!")
     }
   }
 
