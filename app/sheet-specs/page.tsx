@@ -8,10 +8,13 @@ import { ArrowLeft, PlusCircle, Trash2, Save } from "lucide-react"
 import Link from "next/link"
 import { toast } from "react-hot-toast"
 
+const MATERIAL_TYPES = ["Mild Steel", "Aluminum", "Stainless Steel"] as const
+type MaterialType = (typeof MATERIAL_TYPES)[number]
+
 interface SheetCostChart {
   thicknesses: string[]
   sizes: string[]
-  costs: Record<string, Record<string, string>> // costs[size][thickness] = cost
+  costs: Record<string, Record<string, Record<string, string>>> // costs[material][size][thickness] = cost
 }
 
 const DEFAULT_SIZES = ["4x8 ft", "4x10 ft", "4x12 ft", "5x10 ft", "5x12 ft"]
@@ -37,15 +40,14 @@ export default function SheetSpecsPage() {
   const [newThickness, setNewThickness] = useState("")
   const [newSize, setNewSize] = useState("")
   const [hasChanges, setHasChanges] = useState(false)
+  const [activeMaterial, setActiveMaterial] = useState<MaterialType>("Mild Steel")
 
-  // Persist on save
   const saveChart = () => {
     localStorage.setItem("sheetCostChart", JSON.stringify(chart))
     setHasChanges(false)
     toast.success("Sheet cost chart saved!")
   }
 
-  // Auto-save on unmount if changes exist
   useEffect(() => {
     return () => {
       if (hasChanges) {
@@ -54,18 +56,22 @@ export default function SheetSpecsPage() {
     }
   }, [chart, hasChanges])
 
-  const updateCost = (size: string, thickness: string, value: string) => {
+  const updateCost = (material: string, size: string, thickness: string, value: string) => {
     setChart((prev) => {
       const newCosts = { ...prev.costs }
-      if (!newCosts[size]) newCosts[size] = {}
-      newCosts[size] = { ...newCosts[size], [thickness]: value }
+      if (!newCosts[material]) newCosts[material] = {}
+      if (!newCosts[material][size]) newCosts[material][size] = {}
+      newCosts[material] = {
+        ...newCosts[material],
+        [size]: { ...newCosts[material][size], [thickness]: value },
+      }
       return { ...prev, costs: newCosts }
     })
     setHasChanges(true)
   }
 
-  const getCost = (size: string, thickness: string): string => {
-    return chart.costs[size]?.[thickness] ?? ""
+  const getCost = (material: string, size: string, thickness: string): string => {
+    return chart.costs[material]?.[size]?.[thickness] ?? ""
   }
 
   const addThickness = () => {
@@ -83,11 +89,13 @@ export default function SheetSpecsPage() {
   const removeThickness = (thickness: string) => {
     setChart((prev) => {
       const newCosts = { ...prev.costs }
-      for (const size of Object.keys(newCosts)) {
-        if (newCosts[size]) {
-          const sizeCosts = { ...newCosts[size] }
-          delete sizeCosts[thickness]
-          newCosts[size] = sizeCosts
+      for (const material of Object.keys(newCosts)) {
+        for (const size of Object.keys(newCosts[material] || {})) {
+          if (newCosts[material][size]) {
+            const sizeCosts = { ...newCosts[material][size] }
+            delete sizeCosts[thickness]
+            newCosts[material][size] = sizeCosts
+          }
         }
       }
       return {
@@ -114,7 +122,13 @@ export default function SheetSpecsPage() {
   const removeSize = (size: string) => {
     setChart((prev) => {
       const newCosts = { ...prev.costs }
-      delete newCosts[size]
+      for (const material of Object.keys(newCosts)) {
+        if (newCosts[material]) {
+          const matCosts = { ...newCosts[material] }
+          delete matCosts[size]
+          newCosts[material] = matCosts
+        }
+      }
       return {
         ...prev,
         sizes: prev.sizes.filter((s) => s !== size),
@@ -138,7 +152,7 @@ export default function SheetSpecsPage() {
           <div>
             <h1 className="text-3xl font-bold text-foreground">Sheet Specification Chart</h1>
             <p className="text-muted-foreground mt-1">
-              Set the cost for each sheet size and thickness combination. These prices will auto-fill when creating invoices.
+              Set the cost for each material, sheet size, and thickness combination.
             </p>
           </div>
         </div>
@@ -226,9 +240,30 @@ export default function SheetSpecsPage() {
         </div>
       </div>
 
-      {/* Cost Grid */}
+      {/* Material Type Tabs + Cost Grid */}
       <div className="rounded-lg border border-border bg-card p-4">
         <h2 className="text-lg font-semibold text-card-foreground mb-4">Cost Chart ($)</h2>
+
+        {/* Material Tabs */}
+        <div className="flex border-b border-border mb-4">
+          {MATERIAL_TYPES.map((material) => (
+            <button
+              key={material}
+              onClick={() => setActiveMaterial(material)}
+              className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${
+                activeMaterial === material
+                  ? "text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {material}
+              {activeMaterial === material && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+              )}
+            </button>
+          ))}
+        </div>
+
         {chart.sizes.length === 0 || chart.thicknesses.length === 0 ? (
           <p className="text-muted-foreground text-sm">
             Add at least one sheet size and one thickness to start filling in costs.
@@ -263,8 +298,8 @@ export default function SheetSpecsPage() {
                           type="number"
                           min="0"
                           step="0.01"
-                          value={getCost(size, thickness)}
-                          onChange={(e) => updateCost(size, thickness, e.target.value)}
+                          value={getCost(activeMaterial, size, thickness)}
+                          onChange={(e) => updateCost(activeMaterial, size, thickness, e.target.value)}
                           placeholder="0.00"
                           className="w-full text-center h-9 text-sm border-0 bg-transparent focus:bg-background"
                         />

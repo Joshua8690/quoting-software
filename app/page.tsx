@@ -35,10 +35,12 @@ interface SavedCompany {
   address: string
 }
 
+const MATERIAL_TYPES = ["Mild Steel", "Aluminum", "Stainless Steel"] as const
+
 interface SheetCostChart {
   thicknesses: string[]
   sizes: string[]
-  costs: Record<string, Record<string, string>>
+  costs: Record<string, Record<string, Record<string, string>>>
 }
 
 export default function InvoicePage() {
@@ -65,6 +67,7 @@ export default function InvoicePage() {
   const [generatedInvoice, setGeneratedInvoice] = useState<any>(null)
   const [sheetSize, setSheetSize] = useState<SheetSize>({ length: 5, width: 10, unit: "feet" })
   const [sheetThickness, setSheetThickness] = useState("")
+  const [materialType, setMaterialType] = useState(MATERIAL_TYPES[0])
   const [sheetCostChart, setSheetCostChart] = useState<SheetCostChart>({ thicknesses: [], sizes: [], costs: {} })
   const [formingCost, setFormingCost] = useState("")
   const [formingCostMethod, setFormingCostMethod] = useState<"perItem" | "total">("perItem")
@@ -159,6 +162,7 @@ export default function InvoicePage() {
     ])
     setSheetSize({ length: 5, width: 10, unit: "feet" })
     setSheetThickness("")
+    setMaterialType(MATERIAL_TYPES[0])
     setFormingCost("")
     setFormingCostMethod("perItem")
     setPoNumber("")
@@ -171,17 +175,17 @@ export default function InvoicePage() {
     setPlasmaCostPerMinute("")
   }
 
-  // Auto-fill sheet cost from chart when size + thickness are selected
+  // Auto-fill sheet cost from chart when material + size + thickness are selected
   useEffect(() => {
-    if (!sheetThickness || !sheetCostChart.costs) return
+    if (!sheetThickness || !materialType || !sheetCostChart.costs) return
     const sizeKey = sheetSize.custom
       ? `${sheetSize.length}x${sheetSize.width} ${sheetSize.unit === "feet" ? "ft" : "in"}`
       : `${sheetSize.length}x${sheetSize.width} ft`
-    const chartCost = sheetCostChart.costs[sizeKey]?.[sheetThickness]
+    const chartCost = sheetCostChart.costs[materialType]?.[sizeKey]?.[sheetThickness]
     if (chartCost) {
       setSheetCost(chartCost)
     }
-  }, [sheetSize, sheetThickness, sheetCostChart])
+  }, [sheetSize, sheetThickness, materialType, sheetCostChart])
 
   useEffect(() => {
     if (generatedInvoice) {
@@ -333,6 +337,7 @@ export default function InvoicePage() {
         customerName,
         projectName,
         sheetSize,
+        materialType,
         sheetThickness,
         lineItems: lineItems.map((item) => ({
           ...item,
@@ -375,6 +380,7 @@ export default function InvoicePage() {
 
       console.group("Sheet Specifications")
       console.table({
+        "Material Type": invoiceData.materialType,
         "Sheet Thickness": invoiceData.sheetThickness || "N/A",
         "Sheet Size": `${invoiceData.sheetSize.length} ${invoiceData.sheetSize.unit} x ${invoiceData.sheetSize.width} ${invoiceData.sheetSize.unit}`,
         "Sheet Cost": `$${sheetCost}`,
@@ -1002,6 +1008,21 @@ View full invoice: ${shareableLink}
               </div>
             </>
           )}
+          <div>
+            <Label htmlFor="materialType">Material Type</Label>
+            <Select value={materialType} onValueChange={(v) => setMaterialType(v as typeof MATERIAL_TYPES[number])}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select material type" />
+              </SelectTrigger>
+              <SelectContent>
+                {MATERIAL_TYPES.map((type) => (
+                  <SelectItem key={type} value={type}>
+                    {type}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div>
             <Label htmlFor="sheetThickness">Thickness</Label>
             <Select value={sheetThickness} onValueChange={setSheetThickness}>
