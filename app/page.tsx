@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { PlusCircle, Trash2, Share2, Download } from "lucide-react"
+import { PlusCircle, Trash2, Share2, Download, Settings } from "lucide-react"
 import { RecentQuotes } from "@/components/RecentQuotes"
+import Link from "next/link"
 import { TimestampClock } from "@/components/TimestampClock"
 import { toast } from "react-hot-toast"
 import jsPDF from "jspdf"
@@ -34,7 +35,11 @@ interface SavedCompany {
   address: string
 }
 
-const materialTypes = ["Mild Steel", "Stainless Steel", "Aluminum", "Galvanized"]
+interface SheetCostChart {
+  thicknesses: string[]
+  sizes: string[]
+  costs: Record<string, Record<string, string>>
+}
 
 export default function InvoicePage() {
   const [companyInfo, setCompanyInfo] = useState({
@@ -59,7 +64,8 @@ export default function InvoicePage() {
   ])
   const [generatedInvoice, setGeneratedInvoice] = useState<any>(null)
   const [sheetSize, setSheetSize] = useState<SheetSize>({ length: 5, width: 10, unit: "feet" })
-  const [materialType, setMaterialType] = useState(materialTypes[0])
+  const [sheetThickness, setSheetThickness] = useState("")
+  const [sheetCostChart, setSheetCostChart] = useState<SheetCostChart>({ thicknesses: [], sizes: [], costs: {} })
   const [formingCost, setFormingCost] = useState("")
   const [formingCostMethod, setFormingCostMethod] = useState<"perItem" | "total">("perItem")
   const [poNumber, setPoNumber] = useState("")
@@ -92,6 +98,16 @@ export default function InvoicePage() {
       if (projectNames) setSavedProjectNames(JSON.parse(projectNames))
       if (customerEmails) setSavedCustomerEmails(JSON.parse(customerEmails))
       if (poNumbers) setSavedPoNumbers(JSON.parse(poNumbers))
+
+      // Load sheet cost chart
+      const chartData = localStorage.getItem("sheetCostChart")
+      if (chartData) {
+        try {
+          setSheetCostChart(JSON.parse(chartData))
+        } catch {
+          // ignore parse errors
+        }
+      }
     }
 
     loadSavedData()
@@ -142,7 +158,7 @@ export default function InvoicePage() {
       },
     ])
     setSheetSize({ length: 5, width: 10, unit: "feet" })
-    setMaterialType(materialTypes[0])
+    setSheetThickness("")
     setFormingCost("")
     setFormingCostMethod("perItem")
     setPoNumber("")
@@ -154,6 +170,18 @@ export default function InvoicePage() {
     setPlasmaCuttingMinutes("")
     setPlasmaCostPerMinute("")
   }
+
+  // Auto-fill sheet cost from chart when size + thickness are selected
+  useEffect(() => {
+    if (!sheetThickness || !sheetCostChart.costs) return
+    const sizeKey = sheetSize.custom
+      ? `${sheetSize.length}x${sheetSize.width} ${sheetSize.unit === "feet" ? "ft" : "in"}`
+      : `${sheetSize.length}x${sheetSize.width} ft`
+    const chartCost = sheetCostChart.costs[sizeKey]?.[sheetThickness]
+    if (chartCost) {
+      setSheetCost(chartCost)
+    }
+  }, [sheetSize, sheetThickness, sheetCostChart])
 
   useEffect(() => {
     if (generatedInvoice) {
@@ -305,7 +333,7 @@ export default function InvoicePage() {
         customerName,
         projectName,
         sheetSize,
-        materialType,
+        sheetThickness,
         lineItems: lineItems.map((item) => ({
           ...item,
           cost: calculatePartCost(item).toFixed(2),
@@ -345,9 +373,9 @@ export default function InvoicePage() {
       })
       console.groupEnd()
 
-      console.group("Material Specifications")
+      console.group("Sheet Specifications")
       console.table({
-        "Material Type": invoiceData.materialType,
+        "Sheet Thickness": invoiceData.sheetThickness || "N/A",
         "Sheet Size": `${invoiceData.sheetSize.length} ${invoiceData.sheetSize.unit} x ${invoiceData.sheetSize.width} ${invoiceData.sheetSize.unit}`,
         "Sheet Cost": `$${sheetCost}`,
         Markup: `${markupPercentage}%`,
@@ -702,7 +730,15 @@ View full invoice: ${shareableLink}
           <h1 className="text-3xl font-bold">Invoice Generator</h1>
           <TimestampClock />
         </div>
-        <Button onClick={clearInvoice}>New Invoice</Button>
+        <div className="flex items-center gap-3">
+          <Link href="/sheet-specs">
+            <Button variant="outline" className="flex items-center gap-2">
+              <Settings className="h-4 w-4" />
+              Sheet Specifications
+            </Button>
+          </Link>
+          <Button onClick={clearInvoice}>New Invoice</Button>
+        </div>
       </div>
 
       {/* Company Information with Dropdowns */}
@@ -967,19 +1003,30 @@ View full invoice: ${shareableLink}
             </>
           )}
           <div>
-            <Label htmlFor="materialType">Material Type</Label>
-            <Select value={materialType} onValueChange={setMaterialType}>
+            <Label htmlFor="sheetThickness">Thickness</Label>
+            <Select value={sheetThickness} onValueChange={setSheetThickness}>
               <SelectTrigger>
-                <SelectValue placeholder="Select material type" />
+                <SelectValue placeholder="Select thickness" />
               </SelectTrigger>
               <SelectContent>
-                {materialTypes.map((type) => (
-                  <SelectItem key={type} value={type}>
-                    {type}
+                {sheetCostChart.thicknesses.length > 0 ? (
+                  sheetCostChart.thicknesses.map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {t}
+                    </SelectItem>
+                  ))
+                ) : (
+                  <SelectItem value="__none__" disabled>
+                    No thicknesses configured
                   </SelectItem>
-                ))}
+                )}
               </SelectContent>
             </Select>
+            {sheetCostChart.thicknesses.length === 0 && (
+              <p className="text-sm text-muted-foreground mt-1">
+                <Link href="/sheet-specs" className="underline">Set up thicknesses</Link> in Sheet Specifications first.
+              </p>
+            )}
           </div>
           <div>
             <Label htmlFor="sheetCost">Sheet Cost ($)</Label>
